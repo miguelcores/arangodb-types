@@ -1,0 +1,362 @@
+use std::error::Error;
+use std::hash::Hash;
+use std::sync::Arc;
+
+use arangors::document::options::{InsertOptions, OverwriteMode, RemoveOptions, UpdateOptions};
+use arangors::document::response::DocumentResponse;
+use arcstr::ArcStr;
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
+
+use crate::traits::utils::check_client_is_write_conflict;
+use crate::traits::DBCollection;
+use crate::traits::{AQLMapping, DBNormalize, DBNormalizeResult};
+use crate::types::DBId;
+
+#[async_trait]
+pub trait DBDocument:
+    Send + Sync + Clone + Serialize + for<'de> Deserialize<'de> + AQLMapping
+{
+    type Key: ToString
+        + Eq
+        + PartialEq
+        + Clone
+        + Hash
+        + Send
+        + Sync
+        + Serialize
+        + for<'de> Deserialize<'de>;
+    type CollectionType: ToString + Send + Sync;
+    type Collection: DBCollection;
+
+    // GETTERS ----------------------------------------------------------------
+
+    fn db_id(&self) -> Option<DBId<Self::Key, Self::CollectionType>>;
+
+    fn db_key(&self) -> &Option<Self::Key>;
+
+    fn db_rev(&self) -> &Option<ArcStr>;
+
+    fn collection() -> Arc<Self::Collection>;
+
+    /// Whether all the fields are missing or not.
+    fn is_all_missing(&self) -> bool;
+
+    // SETTERS ----------------------------------------------------------------
+
+    fn set_db_key(&mut self, value: Option<Self::Key>);
+
+    // METHODS ----------------------------------------------------------------
+
+    /// Maps all fields that contain a value into a null.
+    fn map_values_to_null(&mut self);
+
+    /// Normalizes the fields of the document to clean it up.
+    fn normalize_fields(&mut self) -> DBNormalizeResult;
+
+    /// Filters the current document using the specified filter.
+    fn filter(&mut self, filter: &Self);
+
+    /// Inserts a new document.
+    ///
+    /// WARN: returns the whole document.
+    async fn insert(mut self, overwrite: bool) -> Result<Self, Box<dyn Error>> {
+        let collection = Self::collection();
+        let db_collection = collection.db_collection().await?;
+
+        loop {
+            let response = db_collection
+                .create_document(
+                    self.clone(),
+                    InsertOptions::builder()
+                        .return_new(true)
+                        .return_old(false)
+                        .keep_null(false)
+                        .overwrite(overwrite)
+                        .overwrite_mode(OverwriteMode::Replace)
+                        .build(),
+                )
+                .await;
+
+            match response {
+                Ok(v) => match v {
+                    DocumentResponse::Silent => unreachable!("Not silent insert!"),
+                    DocumentResponse::Response { new, .. } => return Ok(new.unwrap()),
+                },
+                Err(e) => {
+                    check_client_is_write_conflict(e)?;
+                }
+            }
+        }
+    }
+
+    /// Inserts a new document ignoring the result.
+    async fn insert_and_ignore(mut self, overwrite: bool) -> Result<Self::Key, Box<dyn Error>> {
+        let collection = Self::collection();
+        let db_collection = collection.db_collection().await?;
+
+        loop {
+            let response = db_collection
+                .create_document(
+                    self.clone(),
+                    InsertOptions::builder()
+                        .return_new(false)
+                        .return_old(false)
+                        .keep_null(false)
+                        .overwrite(overwrite)
+                        .overwrite_mode(OverwriteMode::Replace)
+                        .build(),
+                )
+                .await;
+
+            match response {
+                Ok(_) => return Ok(self.db_key().clone().unwrap()),
+                Err(error) => {
+                    check_client_is_write_conflict(error)?;
+                }
+            }
+        }
+    }
+
+    /// Updates the element and returns its updated value.
+    ///
+    /// WARN: returns the whole document.
+    async fn update(&self, merge_objects: bool) -> Result<Self, Box<dyn Error>> {
+        let collection = Self::collection();
+        let db_collection = collection.db_collection().await?;
+
+        let ignore_rev = self.db_rev().is_none();
+
+        let key = self
+            .db_key()
+            .as_ref()
+            .unwrap_or_else(|| {
+                panic!(
+                    "You forgot to include the key property in the {} document",
+                    Self::Collection::name()
+                )
+            })
+            .to_string();
+
+        loop {
+            let response = db_collection
+                .update_document(
+                    key.as_str(),
+                    self.clone(),
+                    UpdateOptions::builder()
+                        .merge_objects(merge_objects)
+                        .keep_null(false)
+                        .return_new(true)
+                        .ignore_revs(ignore_rev)
+                        .build(),
+                )
+                .await;
+
+            match response {
+                Ok(v) => match v {
+                    DocumentResponse::Silent => unreachable!("This update is not silent"),
+                    DocumentResponse::Response { new, .. } => return Ok(new.unwrap()),
+                },
+                Err(e) => {
+                    check_client_is_write_conflict(e)?;
+                }
+            }
+        }
+    }
+
+    /// Updates the element ignoring the result.
+    async fn update_and_ignore(&self, merge_objects: bool) -> Result<(), Box<dyn Error>> {
+        let collection = Self::collection();
+        let db_collection = collection.db_collection().await?;
+
+        let ignore_rev = self.db_rev().is_none();
+
+        let key = self
+            .db_key()
+            .as_ref()
+            .unwrap_or_else(|| {
+                panic!(
+                    "You forgot to include the key property in the {} document",
+                    Self::Collection::name()
+                )
+            })
+            .to_string();
+
+        loop {
+            let response = db_collection
+                .update_document(
+                    key.as_str(),
+                    self.clone(),
+                    UpdateOptions::builder()
+                        .merge_objects(merge_objects)
+                        .keep_null(false)
+                        .ignore_revs(ignore_rev)
+                        .silent(true)
+                        .build(),
+                )
+                .await;
+
+            match response {
+                Ok(_) => return Ok(()),
+                Err(e) => {
+                    check_client_is_write_conflict(e)?;
+                }
+            }
+        }
+    }
+
+    /// Inserts a new document or updates it if it already exists.
+    ///
+    /// WARN: returns the whole document.
+    async fn insert_or_update(mut self, merge_objects: bool) -> Result<Self, Box<dyn Error>> {
+        let collection = Self::collection();
+        let db_collection = collection.db_collection().await?;
+
+        loop {
+            let response = db_collection
+                .create_document(
+                    self.clone(),
+                    InsertOptions::builder()
+                        .return_new(true)
+                        .return_old(false)
+                        .overwrite(true)
+                        .overwrite_mode(OverwriteMode::Update)
+                        .keep_null(false)
+                        .merge_objects(merge_objects)
+                        .build(),
+                )
+                .await;
+
+            match response {
+                Ok(v) => match v {
+                    DocumentResponse::Silent => unreachable!("Not silent insert!"),
+                    DocumentResponse::Response { new, .. } => return Ok(new.unwrap()),
+                },
+                Err(e) => {
+                    check_client_is_write_conflict(e)?;
+                }
+            }
+        }
+    }
+
+    /// Inserts a new document or updates it if it already exists, ignoring the result.
+    async fn insert_or_update_and_ignore(
+        mut self,
+        merge_objects: bool,
+    ) -> Result<Self::Key, Box<dyn Error>> {
+        let collection = Self::collection();
+        let db_collection = collection.db_collection().await?;
+
+        loop {
+            let response = db_collection
+                .create_document(
+                    self.clone(),
+                    InsertOptions::builder()
+                        .return_new(false)
+                        .return_old(false)
+                        .overwrite(true)
+                        .overwrite_mode(OverwriteMode::Update)
+                        .keep_null(false)
+                        .merge_objects(merge_objects)
+                        .silent(true)
+                        .build(),
+                )
+                .await;
+
+            match response {
+                Ok(_) => return Ok(self.db_key().clone().unwrap()),
+                Err(error) => {
+                    check_client_is_write_conflict(error)?;
+                }
+            }
+        }
+    }
+
+    /// Removes the element returning the old value.
+    async fn remove(&self, rev: Option<ArcStr>) -> Result<Self, Box<dyn Error>> {
+        let collection = Self::collection();
+        let db_collection = collection.db_collection().await?;
+
+        let key = self
+            .db_key()
+            .as_ref()
+            .unwrap_or_else(|| {
+                panic!(
+                    "You forgot to include the key property in the {} document",
+                    Self::Collection::name()
+                )
+            })
+            .to_string();
+        let rev = rev.map(|v| v.to_string());
+
+        loop {
+            let response = db_collection
+                .remove_document(
+                    key.as_str(),
+                    RemoveOptions::builder()
+                        .return_old(true)
+                        .silent(false)
+                        .build(),
+                    rev.clone(),
+                )
+                .await;
+
+            match response {
+                Ok(v) => match v {
+                    DocumentResponse::Silent => unreachable!("This remove is not silent"),
+                    DocumentResponse::Response { old, .. } => return Ok(old.unwrap()),
+                },
+                Err(e) => {
+                    check_client_is_write_conflict(e)?;
+                }
+            }
+        }
+    }
+
+    /// Removes the element ignoring the result.
+    async fn remove_and_ignore(&self, rev: Option<ArcStr>) -> Result<(), Box<dyn Error>> {
+        let collection = Self::collection();
+        let db_collection = collection.db_collection().await?;
+
+        let key = self
+            .db_key()
+            .as_ref()
+            .unwrap_or_else(|| {
+                panic!(
+                    "You forgot to include the key property in the {} document",
+                    Self::Collection::name()
+                )
+            })
+            .to_string();
+        let rev = rev.map(|v| v.to_string());
+
+        loop {
+            let response = db_collection
+                .remove_document::<()>(
+                    key.as_str(),
+                    RemoveOptions::builder()
+                        .return_old(false)
+                        .silent(true)
+                        .build(),
+                    rev.clone(),
+                )
+                .await;
+
+            match response {
+                Ok(_) => return Ok(()),
+                Err(e) => {
+                    check_client_is_write_conflict(e)?;
+                }
+            }
+        }
+    }
+}
+
+impl<T> DBNormalize for T
+where
+    T: DBDocument,
+{
+    fn normalize(&mut self) -> DBNormalizeResult {
+        self.normalize_fields()
+    }
+}
