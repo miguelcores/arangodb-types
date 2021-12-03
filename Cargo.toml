@@ -1,2 +1,2 @@
 [workspace]
-members = ["arangodb-models", "arangodb-types"]
+members = ["arangodb-models", "arangodb-types", "arangodb-tests"]

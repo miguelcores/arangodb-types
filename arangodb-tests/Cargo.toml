@@ -1,0 +1,22 @@
+[package]
+name = "arangodb-tests"
+version = "0.1.0"
+authors = ["Julio Treviño Páez <julio.tpaez@gmail.com>"]
+edition = "2021"
+
+[features]
+
+[dependencies]
+arcstr = { version = "1.1.1", features = ["serde", "substr-usize-indices"] }
+async-trait = "0.1.51"
+lazy_static = "1.4.0"
+serde = "1.0.130"
+serde_json = "1.0.69"
+tokio = { version = "1.14.0", features = ["sync", "time", "rt-multi-thread", "macros"] }
+
+[dependencies.arangodb-models]
+path = "../arangodb-models"
+
+[dependencies.arangodb-types]
+path = "../arangodb-types"
+features = ["test", "remote_mutex"]
