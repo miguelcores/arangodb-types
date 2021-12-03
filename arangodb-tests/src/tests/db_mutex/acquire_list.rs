@@ -6,14 +6,14 @@ use arangodb_types::types::{DBUuid, NullableOption};
 use arangodb_types::utilities::BDMutexGuard;
 
 use crate::tests::constants::NODE_ID;
-use crate::tests::db_mutex::model::{MutexCollection, MutexDBDocument};
+use crate::tests::db_mutex::model::MutexDBDocument;
 use crate::tests::db_mutex::TEST_RWLOCK;
 use crate::tests::init_db_connection;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn acquire_list_ok() {
     let _test_lock = TEST_RWLOCK.read().await;
-    let _db_info = init_db_connection().await;
+    let (_db_info, collection) = init_db_connection().await;
 
     // Preconditions.
     let mut document_keys = Vec::new();
@@ -24,7 +24,7 @@ async fn acquire_list_ok() {
             db_key: Some(document_key.clone()),
             ..Default::default()
         }
-        .insert(true)
+        .insert(true, collection.as_ref())
         .await
         .expect("Cannot add preconditions to DB");
 
@@ -32,10 +32,14 @@ async fn acquire_list_ok() {
     }
 
     // Execute.
-    let (documents, _mutex) =
-        BDMutexGuard::<MutexDBDocument>::acquire_list(&document_keys, &NODE_ID.into(), None)
-            .await
-            .expect("Locking must succeed");
+    let (documents, _mutex) = BDMutexGuard::<MutexDBDocument>::acquire_list(
+        &document_keys,
+        &NODE_ID.into(),
+        None,
+        &collection,
+    )
+    .await
+    .expect("Locking must succeed");
 
     assert_eq!(documents.len(), document_keys.len(), "Incorrect length");
 
@@ -63,7 +67,7 @@ async fn acquire_list_ok() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn acquire_list_mix() {
     let _test_lock = TEST_RWLOCK.read().await;
-    let _db_info = init_db_connection().await;
+    let (_db_info, collection) = init_db_connection().await;
 
     // Preconditions.
     let mut document_keys = Vec::new();
@@ -80,7 +84,7 @@ async fn acquire_list_mix() {
                     db_key: Some(document_key.clone()),
                     ..Default::default()
                 }
-                .insert(true)
+                .insert(true, collection.as_ref())
                 .await
                 .expect("Cannot add preconditions to DB");
             }
@@ -94,7 +98,7 @@ async fn acquire_list_mix() {
                     }),
                     ..Default::default()
                 }
-                .insert(true)
+                .insert(true, collection.as_ref())
                 .await
                 .expect("Cannot add preconditions to DB");
             }
@@ -105,15 +109,18 @@ async fn acquire_list_mix() {
     }
 
     // Execute.
-    let (documents, _mutex) =
-        BDMutexGuard::<MutexDBDocument>::acquire_list(&document_keys, &NODE_ID.into(), None)
-            .await
-            .expect("Locking must succeed");
+    let (documents, _mutex) = BDMutexGuard::<MutexDBDocument>::acquire_list(
+        &document_keys,
+        &NODE_ID.into(),
+        None,
+        &collection,
+    )
+    .await
+    .expect("Locking must succeed");
 
     assert_eq!(documents.len(), document_keys.len(), "Incorrect length");
 
     // Check DB.
-    let collection = MutexCollection::instance();
     for (i, (document_key, document)) in document_keys.iter().zip(documents).enumerate() {
         match i % 3 {
             0 => {

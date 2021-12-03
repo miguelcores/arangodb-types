@@ -8,7 +8,7 @@ use crate::tests::db_mutex::model::MutexCollection;
 pub mod constants;
 pub mod db_mutex;
 
-async fn init_db_connection() -> Arc<DBInfo> {
+async fn init_db_connection() -> (Arc<DBInfo>, Arc<MutexCollection>) {
     let db_info = DBInfo::connect(
         DB_URL.into(),
         DB_NAME.into(),
@@ -19,9 +19,9 @@ async fn init_db_connection() -> Arc<DBInfo> {
     .expect("Cannot connect with DB");
 
     let db_info = Arc::new(db_info);
-    let _collection = MutexCollection::new(&db_info)
+    let collection = MutexCollection::new(&db_info)
         .await
         .expect("Cannot create collection");
 
-    db_info
+    (db_info, collection)
 }

@@ -1,20 +1,13 @@
 use std::error::Error;
 use std::fmt::Formatter;
-use std::ops::Deref;
 use std::sync::Arc;
 
 use arcstr::ArcStr;
-use lazy_static::lazy_static;
 
 use arangodb_models::model;
 use arangodb_types::traits::DBCollection;
 use arangodb_types::types::DBInfo;
 use arangodb_types::types::DBUuid;
-
-lazy_static! {
-    static ref COLLECTION: std::sync::Mutex<Option<Arc<MutexCollection>>> =
-        std::sync::Mutex::new(None);
-}
 
 #[derive(Debug)]
 pub struct MutexCollection {
@@ -28,19 +21,9 @@ impl MutexCollection {
         let database = &db_info.database;
 
         // Initialize collection.
-        let mut collection = COLLECTION.lock().unwrap();
-        let collection = match collection.deref() {
-            Some(v) => v.clone(),
-            None => {
-                let value = Arc::new(MutexCollection {
-                    db_info: db_info.clone(),
-                });
-
-                *collection = Some(value.clone());
-
-                value
-            }
-        };
+        let collection = Arc::new(MutexCollection {
+            db_info: db_info.clone(),
+        });
         let _ = database.create_collection(MutexCollection::name()).await; // Ignore error because it means already created.
 
         Ok(collection)
@@ -56,10 +39,6 @@ impl DBCollection for MutexCollection {
 
     fn db_info(&self) -> &Arc<DBInfo> {
         &self.db_info
-    }
-
-    fn instance() -> Arc<MutexCollection> {
-        COLLECTION.lock().unwrap().as_ref().unwrap().clone()
     }
 }
 

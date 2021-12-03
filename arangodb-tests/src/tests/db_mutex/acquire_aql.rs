@@ -5,18 +5,17 @@ use arangodb_types::types::{DBUuid, NullableOption};
 use arangodb_types::utilities::BDMutexGuard;
 
 use crate::tests::constants::NODE_ID;
+use crate::tests::db_mutex::model::MutexDBDocument;
 use crate::tests::db_mutex::model::MutexDBDocumentField;
-use crate::tests::db_mutex::model::{MutexCollection, MutexDBDocument};
 use crate::tests::db_mutex::TEST_RWLOCK;
 use crate::tests::init_db_connection;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn acquire_user_aql_ok() {
     let _test_lock = TEST_RWLOCK.write().await;
-    let _db_info = init_db_connection().await;
+    let (_db_info, collection) = init_db_connection().await;
 
     // Preconditions.
-    let collection = MutexCollection::instance();
     collection
         .truncate()
         .await
@@ -29,7 +28,7 @@ async fn acquire_user_aql_ok() {
             value: NullableOption::Value(15),
             ..Default::default()
         }
-        .insert(true)
+        .insert(true, collection.as_ref())
         .await
         .expect("Cannot add preconditions to DB");
     }
@@ -41,7 +40,7 @@ async fn acquire_user_aql_ok() {
             value: NullableOption::Value(20),
             ..Default::default()
         }
-        .insert(true)
+        .insert(true, collection.as_ref())
         .await
         .expect("Cannot add preconditions to DB");
     }
@@ -60,6 +59,7 @@ async fn acquire_user_aql_ok() {
         None,
         &NODE_ID.into(),
         None,
+        &collection,
     )
     .await
     .expect("Locking must succeed");
@@ -84,10 +84,9 @@ async fn acquire_user_aql_ok() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn acquire_user_aql_with_limits_ok() {
     let _test_lock = TEST_RWLOCK.write().await;
-    let _db_info = init_db_connection().await;
+    let (_db_info, collection) = init_db_connection().await;
 
     // Preconditions.
-    let collection = MutexCollection::instance();
     collection
         .truncate()
         .await
@@ -100,7 +99,7 @@ async fn acquire_user_aql_with_limits_ok() {
             value: NullableOption::Value(20),
             ..Default::default()
         }
-        .insert(true)
+        .insert(true, collection.as_ref())
         .await
         .expect("Cannot add preconditions to DB");
     }
@@ -118,6 +117,7 @@ async fn acquire_user_aql_with_limits_ok() {
         Some(limits),
         &NODE_ID.into(),
         None,
+        &collection,
     )
     .await
     .expect("Locking must succeed");

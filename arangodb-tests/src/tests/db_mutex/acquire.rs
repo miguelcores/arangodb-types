@@ -6,14 +6,14 @@ use arangodb_types::types::{DBUuid, NullableOption};
 use arangodb_types::utilities::{BDMutexGuard, DBMutexError};
 
 use crate::tests::constants::NODE_ID;
-use crate::tests::db_mutex::model::{MutexCollection, MutexDBDocument};
+use crate::tests::db_mutex::model::MutexDBDocument;
 use crate::tests::db_mutex::TEST_RWLOCK;
 use crate::tests::init_db_connection;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn acquire_ok() {
     let _test_lock = TEST_RWLOCK.read().await;
-    let _db_info = init_db_connection().await;
+    let (_db_info, collection) = init_db_connection().await;
 
     // Preconditions.
     let document_key = DBUuid::new();
@@ -21,7 +21,7 @@ async fn acquire_ok() {
         db_key: Some(document_key.clone()),
         ..Default::default()
     }
-    .insert(true)
+    .insert(true, collection.as_ref())
     .await
     .expect("Cannot add preconditions to DB");
 
@@ -31,6 +31,7 @@ async fn acquire_ok() {
         &NODE_ID.into(),
         None,
         None,
+        &collection,
     )
     .await
     .expect("Locking must succeed");
@@ -51,7 +52,7 @@ async fn acquire_ok() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn acquire_expired() {
     let _test_lock = TEST_RWLOCK.read().await;
-    let _db_info = init_db_connection().await;
+    let (_db_info, collection) = init_db_connection().await;
 
     // Preconditions.
     let document_key = DBUuid::new();
@@ -65,7 +66,7 @@ async fn acquire_expired() {
         }),
         ..Default::default()
     }
-    .insert(true)
+    .insert(true, collection.as_ref())
     .await
     .expect("Cannot add preconditions to DB");
 
@@ -75,6 +76,7 @@ async fn acquire_expired() {
         &NODE_ID.into(),
         None,
         None,
+        &collection,
     )
     .await
     .expect("Locking must succeed");
@@ -96,7 +98,7 @@ async fn acquire_expired() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn acquire_already_locked() {
     let _test_lock = TEST_RWLOCK.read().await;
-    let _db_info = init_db_connection().await;
+    let (_db_info, collection) = init_db_connection().await;
 
     // Preconditions.
     let document_key = DBUuid::new();
@@ -111,7 +113,7 @@ async fn acquire_already_locked() {
         }),
         ..Default::default()
     }
-    .insert(true)
+    .insert(true, collection.as_ref())
     .await
     .expect("Cannot add preconditions to DB");
 
@@ -121,6 +123,7 @@ async fn acquire_already_locked() {
         &NODE_ID.into(),
         None,
         Some(1),
+        &collection,
     )
     .await;
 
@@ -131,7 +134,6 @@ async fn acquire_already_locked() {
     }
 
     // Check DB.
-    let collection = MutexCollection::instance();
     let document = collection
         .get_one_by_key(&document_key, None)
         .await
@@ -154,7 +156,7 @@ async fn acquire_already_locked() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn acquire_missing() {
     let _test_lock = TEST_RWLOCK.read().await;
-    let _db_info = init_db_connection().await;
+    let (_db_info, collection) = init_db_connection().await;
 
     // Preconditions.
     let document_key = DBUuid::new();
@@ -165,6 +167,7 @@ async fn acquire_missing() {
         &NODE_ID.into(),
         None,
         None,
+        &collection,
     )
     .await;
 
