@@ -34,6 +34,7 @@ struct BDMutexGuardInner<T: 'static + DBSynchronizedDocument<'static>> {
     elements: HashSet<T::Key>,
     change_flag: DBUuid,
     alive_job: Option<JoinHandle<()>>,
+    collection: Arc<T::Collection>,
 }
 
 impl<T: 'static + DBSynchronizedDocument<'static>> BDMutexGuard<T> {
@@ -45,6 +46,7 @@ impl<T: 'static + DBSynchronizedDocument<'static>> BDMutexGuard<T> {
         node_id: &ArcStr,
         fields: Option<&T>,
         timeout: Option<u64>,
+        collection: &Arc<T::Collection>,
     ) -> Result<(T, BDMutexGuard<T>), DBMutexError> {
         let time_out = timeout.map(|v| DBDateTime::now().after_seconds(v));
         let mut checked_doc_exists = false;
@@ -56,7 +58,8 @@ impl<T: 'static + DBSynchronizedDocument<'static>> BDMutexGuard<T> {
             }
 
             // Prepare filter.
-            let (mut list, mutex) = Self::acquire_list(&[key.clone()], node_id, fields).await?;
+            let (mut list, mutex) =
+                Self::acquire_list(&[key.clone()], node_id, fields, collection).await?;
 
             let value = list.pop().unwrap();
 
@@ -67,7 +70,6 @@ impl<T: 'static + DBSynchronizedDocument<'static>> BDMutexGuard<T> {
                         // Check the document exists and exit if not.
                         // This prevents waiting until timeout when the document
                         // is not present in the DB.
-                        let collection = T::collection();
                         let exists_in_db = collection.exists_by_key(key).await?;
 
                         if !exists_in_db {
@@ -94,6 +96,7 @@ impl<T: 'static + DBSynchronizedDocument<'static>> BDMutexGuard<T> {
         keys: &[T::Key],
         node_id: &ArcStr,
         fields: Option<&T>,
+        collection: &Arc<T::Collection>,
     ) -> Result<(Vec<Option<T>>, BDMutexGuard<T>), Box<dyn Error>> {
         // Shortcut for empty sets.
         if keys.is_empty() {
@@ -105,12 +108,12 @@ impl<T: 'static + DBSynchronizedDocument<'static>> BDMutexGuard<T> {
                         elements: HashSet::new(),
                         change_flag: DBUuid::new(),
                         alive_job: Some(tokio::spawn(async {})),
+                        collection: collection.clone(),
                     })),
                 },
             ));
         }
 
-        let collection = T::collection();
         let collection_name = T::Collection::name();
         let mutex_path = DBDocumentField::Mutex.path();
 
@@ -183,6 +186,7 @@ impl<T: 'static + DBSynchronizedDocument<'static>> BDMutexGuard<T> {
                 elements: result_ids,
                 change_flag,
                 alive_job: None,
+                collection: collection.clone(),
             })),
         };
 
@@ -224,8 +228,8 @@ impl<T: 'static + DBSynchronizedDocument<'static>> BDMutexGuard<T> {
         limits: Option<AqlLimit>,
         node_id: &ArcStr,
         fields: Option<&T>,
+        collection: &Arc<T::Collection>,
     ) -> Result<(Vec<T>, BDMutexGuard<T>), Box<dyn Error>> {
-        let collection = T::collection();
         let collection_name = T::Collection::name();
         let mutex_path = DBDocumentField::Mutex.path();
 
@@ -303,6 +307,7 @@ impl<T: 'static + DBSynchronizedDocument<'static>> BDMutexGuard<T> {
                 elements: result_ids,
                 change_flag,
                 alive_job: None,
+                collection: collection.clone(),
             })),
         };
 
@@ -380,6 +385,7 @@ impl<T: 'static + DBSynchronizedDocument<'static>> BDMutexGuard<T> {
                     elements: new_elements,
                     change_flag: DBUuid::new(),
                     alive_job: Some(tokio::spawn(async {})),
+                    collection: lock.collection.clone(),
                 })),
             }
         } else {
@@ -389,6 +395,7 @@ impl<T: 'static + DBSynchronizedDocument<'static>> BDMutexGuard<T> {
                     elements: new_elements,
                     change_flag: lock.change_flag.clone(),
                     alive_job: None,
+                    collection: lock.collection.clone(),
                 })),
             };
 
@@ -427,7 +434,7 @@ impl<T: 'static + DBSynchronizedDocument<'static>> BDMutexGuard<T> {
                 return;
             }
 
-            let collection = T::collection();
+            let collection = &lock.collection;
             let node_id = &lock.node_id;
             let now = DBDateTime::now();
             let expiration = now.after_seconds(MUTEX_EXPIRATION);
@@ -519,7 +526,7 @@ impl<T: 'static + DBSynchronizedDocument<'static>> BDMutexGuard<T> {
             return;
         }
 
-        let collection = T::collection();
+        let collection = &lock.collection;
         let node_id = &lock.node_id;
         let keys = &lock.elements;
 
@@ -590,12 +597,11 @@ impl<T: 'static + DBSynchronizedDocument<'static>> BDMutexGuard<T> {
         }
     }
 
-    pub async fn release_all_mutexes(node_id: &str) {
+    pub async fn release_all_mutexes(node_id: &str, collection: &Arc<T::Collection>) {
         // FOR i IN <collection>
         //     FILTER i.<mutex.node> == <node>
         //     UPDATE i WITH { <mutex>: null } IN <collection> OPTIONS { mergeObjects: true, keepNulls: false, ignoreErrors: true }
         let mutex_path = DBDocumentField::Mutex.path();
-        let collection = T::collection();
         let collection_name = T::Collection::name();
         let mut aql = AqlBuilder::new_for_in_collection(AQL_DOCUMENT_ID, collection_name);
         aql.filter_step(

@@ -45,9 +45,6 @@ pub trait DBCollection: Send + Sync {
         &self.db_info().database
     }
 
-    /// Returns the instance associated with the collection.
-    fn instance() -> Arc<Self>;
-
     // METHODS ----------------------------------------------------------------
 
     /// Checks whether a document exists in the DB by its key.
@@ -393,7 +390,7 @@ pub trait DBCollection: Send + Sync {
         Ok(())
     }
 
-    /// Drops the collection.
+    /// Drops the colle ction.
     async fn drop_collection(&self) -> Result<(), Box<dyn Error>> {
         let db_info = self.db_collection().await?;
         db_info.drop().await?;

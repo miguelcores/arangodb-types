@@ -688,10 +688,6 @@ fn build_db_document_impl(
                 &self.db_rev
             }
 
-            fn collection() -> Arc<Self::Collection> {
-                Self::Collection::instance()
-            }
-
             #is_all_missing_method_tokens
 
             // SETTERS --------------------------------------------------------

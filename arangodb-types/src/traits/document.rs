@@ -1,6 +1,5 @@
 use std::error::Error;
 use std::hash::Hash;
-use std::sync::Arc;
 
 use arangors::document::options::{InsertOptions, OverwriteMode, RemoveOptions, UpdateOptions};
 use arangors::document::response::DocumentResponse;
@@ -37,8 +36,6 @@ pub trait DBDocument:
 
     fn db_rev(&self) -> &Option<ArcStr>;
 
-    fn collection() -> Arc<Self::Collection>;
-
     /// Whether all the fields are missing or not.
     fn is_all_missing(&self) -> bool;
 
@@ -60,8 +57,11 @@ pub trait DBDocument:
     /// Inserts a new document.
     ///
     /// WARN: returns the whole document.
-    async fn insert(mut self, overwrite: bool) -> Result<Self, Box<dyn Error>> {
-        let collection = Self::collection();
+    async fn insert(
+        mut self,
+        overwrite: bool,
+        collection: &Self::Collection,
+    ) -> Result<Self, Box<dyn Error>> {
         let db_collection = collection.db_collection().await?;
 
         loop {
@@ -91,8 +91,11 @@ pub trait DBDocument:
     }
 
     /// Inserts a new document ignoring the result.
-    async fn insert_and_ignore(mut self, overwrite: bool) -> Result<Self::Key, Box<dyn Error>> {
-        let collection = Self::collection();
+    async fn insert_and_ignore(
+        mut self,
+        overwrite: bool,
+        collection: &Self::Collection,
+    ) -> Result<Self::Key, Box<dyn Error>> {
         let db_collection = collection.db_collection().await?;
 
         loop {
@@ -121,8 +124,11 @@ pub trait DBDocument:
     /// Updates the element and returns its updated value.
     ///
     /// WARN: returns the whole document.
-    async fn update(&self, merge_objects: bool) -> Result<Self, Box<dyn Error>> {
-        let collection = Self::collection();
+    async fn update(
+        &self,
+        merge_objects: bool,
+        collection: &Self::Collection,
+    ) -> Result<Self, Box<dyn Error>> {
         let db_collection = collection.db_collection().await?;
 
         let ignore_rev = self.db_rev().is_none();
@@ -165,8 +171,11 @@ pub trait DBDocument:
     }
 
     /// Updates the element ignoring the result.
-    async fn update_and_ignore(&self, merge_objects: bool) -> Result<(), Box<dyn Error>> {
-        let collection = Self::collection();
+    async fn update_and_ignore(
+        &self,
+        merge_objects: bool,
+        collection: &Self::Collection,
+    ) -> Result<(), Box<dyn Error>> {
         let db_collection = collection.db_collection().await?;
 
         let ignore_rev = self.db_rev().is_none();
@@ -208,8 +217,11 @@ pub trait DBDocument:
     /// Inserts a new document or updates it if it already exists.
     ///
     /// WARN: returns the whole document.
-    async fn insert_or_update(mut self, merge_objects: bool) -> Result<Self, Box<dyn Error>> {
-        let collection = Self::collection();
+    async fn insert_or_update(
+        mut self,
+        merge_objects: bool,
+        collection: &Self::Collection,
+    ) -> Result<Self, Box<dyn Error>> {
         let db_collection = collection.db_collection().await?;
 
         loop {
@@ -243,8 +255,8 @@ pub trait DBDocument:
     async fn insert_or_update_and_ignore(
         mut self,
         merge_objects: bool,
+        collection: &Self::Collection,
     ) -> Result<Self::Key, Box<dyn Error>> {
-        let collection = Self::collection();
         let db_collection = collection.db_collection().await?;
 
         loop {
@@ -273,8 +285,11 @@ pub trait DBDocument:
     }
 
     /// Removes the element returning the old value.
-    async fn remove(&self, rev: Option<ArcStr>) -> Result<Self, Box<dyn Error>> {
-        let collection = Self::collection();
+    async fn remove(
+        &self,
+        rev: Option<ArcStr>,
+        collection: &Self::Collection,
+    ) -> Result<Self, Box<dyn Error>> {
         let db_collection = collection.db_collection().await?;
 
         let key = self
@@ -314,8 +329,11 @@ pub trait DBDocument:
     }
 
     /// Removes the element ignoring the result.
-    async fn remove_and_ignore(&self, rev: Option<ArcStr>) -> Result<(), Box<dyn Error>> {
-        let collection = Self::collection();
+    async fn remove_and_ignore(
+        &self,
+        rev: Option<ArcStr>,
+        collection: &Self::Collection,
+    ) -> Result<(), Box<dyn Error>> {
         let db_collection = collection.db_collection().await?;
 
         let key = self
