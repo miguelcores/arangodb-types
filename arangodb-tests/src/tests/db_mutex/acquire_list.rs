@@ -6,9 +6,9 @@ use arangodb_types::types::{DBUuid, NullableOption};
 use arangodb_types::utilities::BDMutexGuard;
 
 use crate::tests::constants::NODE_ID;
+use crate::tests::db_mutex::model::{MutexCollection, MutexDBDocument};
+use crate::tests::db_mutex::TEST_RWLOCK;
 use crate::tests::init_db_connection;
-use crate::tests::remote_mutex::model::{MutexCollection, MutexDBDocument};
-use crate::tests::remote_mutex::TEST_RWLOCK;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn acquire_list_ok() {
@@ -134,7 +134,7 @@ async fn acquire_list_mix() {
                 assert!(document.is_none(), "Incorrect already locked document");
 
                 let document = collection
-                    .get_one_by_key(&document_key, None)
+                    .get_one_by_key(document_key, None)
                     .await
                     .expect("There is an error trying to get the document")
                     .expect("The document does not exist in DB");

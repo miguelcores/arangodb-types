@@ -3,10 +3,10 @@ use std::sync::Arc;
 use arangodb_types::types::DBInfo;
 
 use crate::tests::constants::{DB_NAME, DB_PASSWORD, DB_URL, DB_USERNAME};
-use crate::tests::remote_mutex::model::MutexCollection;
+use crate::tests::db_mutex::model::MutexCollection;
 
 pub mod constants;
-pub mod remote_mutex;
+pub mod db_mutex;
 
 async fn init_db_connection() -> Arc<DBInfo> {
     let db_info = DBInfo::connect(

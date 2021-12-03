@@ -1,16 +1,14 @@
-use std::time::Duration;
-
-use tokio::time::sleep;
-
 use arangodb_types::traits::DBCollection;
 use arangodb_types::traits::DBDocument;
 use arangodb_types::types::DBUuid;
 use arangodb_types::utilities::BDMutexGuard;
+use std::time::Duration;
+use tokio::time::sleep;
 
 use crate::tests::constants::NODE_ID;
+use crate::tests::db_mutex::model::{MutexCollection, MutexDBDocument};
+use crate::tests::db_mutex::TEST_RWLOCK;
 use crate::tests::init_db_connection;
-use crate::tests::remote_mutex::model::{MutexCollection, MutexDBDocument};
-use crate::tests::remote_mutex::TEST_RWLOCK;
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn release_list_auto() {

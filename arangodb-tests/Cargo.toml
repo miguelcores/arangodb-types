@@ -19,4 +19,4 @@ path = "../arangodb-models"
 
 [dependencies.arangodb-types]
 path = "../arangodb-types"
-features = ["test", "remote_mutex"]
+features = ["test", "db_mutex"]

@@ -1,5 +1,5 @@
-#[cfg(feature = "remote_mutex")]
-pub use remote_mutex::*;
+#[cfg(feature = "db_mutex")]
+pub use db_mutex::*;
 
-#[cfg(feature = "remote_mutex")]
-mod remote_mutex;
+#[cfg(feature = "db_mutex")]
+mod db_mutex;

@@ -6,7 +6,7 @@ edition = "2021"
 
 [features]
 test = []
-remote_mutex = ["log", "rand", "tokio"]
+db_mutex = ["log", "rand", "tokio"]
 
 [dependencies]
 arangors = { version = "0.5.0", features = ["arango3_7"] }
