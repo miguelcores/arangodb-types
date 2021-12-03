@@ -111,7 +111,7 @@ fn build_enum(
         #[serde(rename_all = "camelCase")]
         #serde_tag_attribute
         #(#attribute_list)*
-        #visibility enum #document_name#generics {
+        #visibility enum #document_name #generics {
             #(#field_list)*
         }
     })
@@ -240,6 +240,7 @@ fn build_impl(
 
     // Evaluate normalize method.
     imports.insert("::arangodb_types::traits::DBNormalizeResult".to_string());
+    imports.insert("::arangodb_types::traits::DBNormalize".to_string());
 
     let normalize_or_remove_method_tokens = if let Some(method_name) = &info.replace_normalize {
         method_name.to_token_stream()
@@ -440,7 +441,7 @@ fn build_impl(
     imports.insert("::arangodb_types::traits::DBNormalize".to_string());
 
     Ok(quote! {
-        impl#generics #document_name#generics {
+        impl #generics #document_name #generics {
             #(#is_method_list)*
             #map_values_to_null_method_tokens
             #filter_method_tokens
@@ -454,7 +455,7 @@ fn build_impl(
             }
         }
 
-        impl#generics DBNormalize for #document_name#generics {
+        impl #generics DBNormalize for #document_name #generics {
             #normalize_or_remove_method_tokens
         }
     })
@@ -564,7 +565,7 @@ fn build_field_list(
 
     // Build result.
     Ok(quote! {
-        impl#generics #document_name#generics {
+        impl #generics #document_name #generics {
             pub fn variant(&self) -> #enum_name {
                 match self {
                     #(#get_variant_list)*
@@ -690,7 +691,7 @@ fn build_aql_mapping_impl(
     imports.insert("::arangodb_types::traits::AQLMapping".to_string());
 
     Ok(quote! {
-        impl#generics AQLMapping for #document_name#generics {
+        impl #generics AQLMapping for #document_name #generics {
             #include_let_steps_method
             #map_to_json_method
         }

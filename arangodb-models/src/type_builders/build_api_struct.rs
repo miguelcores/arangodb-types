@@ -121,7 +121,7 @@ fn build_impl(
 
     // Build result.
     Ok(quote! {
-        impl#generics #api_document_name#generics {
+        impl #generics #api_document_name #generics {
             pub fn map_values_to_null(&mut self) {
                 #(#map_to_null_fields)*
             }

@@ -138,7 +138,7 @@ fn build_struct(
         #[serde(rename_all = "camelCase")]
         #default_attribute
         #(#attribute_list)*
-        #visibility struct #document_name#generics {
+        #visibility struct #document_name #generics {
             #[serde(skip_serializing_if = "Option::is_none")]
             #[serde(rename = "_rev")]
             pub db_rev: Option<ArcStr>,
@@ -187,9 +187,10 @@ fn build_impl(
         });
 
         // Check mutex field.
+        let mutex_field_name = format_ident!("{}", MUTEX_FIELD_NAME);
         let mutex_field = if options.sync_level.is_document_active() {
             quote! {
-                mutex: NullableOption::Null,
+                #mutex_field_name: NullableOption::Null,
             }
         } else {
             quote! {}
@@ -211,7 +212,7 @@ fn build_impl(
 
     // Build result.
     Ok(quote! {
-        impl#generics #document_name#generics {
+        impl #generics #document_name #generics {
             #all_null_method_tokens
         }
     })
@@ -367,6 +368,7 @@ fn build_db_document_impl(
         method_name.to_token_stream()
     } else if let Some(method_name) = &options.replace_normalize_fields {
         imports.insert("::arangodb_types::traits::DBNormalizeResult".to_string());
+        imports.insert("::arangodb_types::traits::DBNormalize".to_string());
 
         quote! {
             #[allow(unused_variables)]
@@ -377,6 +379,7 @@ fn build_db_document_impl(
     } else {
         let normalize_field_list = fields_in_db.iter().filter_map(|field| {
             imports.insert("::arangodb_types::traits::DBNormalizeResult".to_string());
+            imports.insert("::arangodb_types::traits::DBNormalize".to_string());
 
             if field.attributes.skip_normalize {
                 return None;
@@ -657,18 +660,21 @@ fn build_db_document_impl(
 
     // Build result.
     imports.insert("::arangodb_types::traits::DBDocument".to_string());
-    imports.insert("::arangodb_types::traits::DBId".to_string());
+    imports.insert("::arangodb_types::types::DBId".to_string());
+    imports.insert("::async_trait::async_trait".to_string());
 
+    let key_field = info.get_key_field().unwrap();
+    let key_type = key_field.inner_type.as_ref().unwrap();
     Ok(quote! {
         #[async_trait]
         impl DBDocument for #document_name {
-            type Key = #collection_name;
+            type Key = #key_type;
             type CollectionType = #collection_type_name;
             type Collection = #collection_name;
 
             // GETTERS --------------------------------------------------------
 
-            fn db_id(&self) -> Option<DBId> {
+            fn db_id(&self) -> Option<DBId<Self::Key, Self::CollectionType>> {
                 self.db_key
                     .as_ref()
                     .map(|key| DBId::new(key.clone(), #collection_type_name::#collection_kind))
@@ -690,7 +696,7 @@ fn build_db_document_impl(
 
             // SETTERS --------------------------------------------------------
 
-            fn set_db_key(&mut self, value: Option<DBUuid>) {
+            fn set_db_key(&mut self, value: Option<Self::Key>) {
                 self.db_key = value;
             }
 
@@ -854,7 +860,7 @@ fn build_sync_impl(
     imports.insert("::arangodb_types::traits::DBSynchronizedDocument".to_string());
 
     Ok(quote! {
-        impl DBSynchronizedDocument<'a> for #document_name {
+        impl<'a> DBSynchronizedDocument<'a> for #document_name {
             #[allow(unused_variables)]
             fn collection_key() -> &'a Self::Key {
                 #collection_key_value
@@ -885,11 +891,11 @@ fn check_and_build_edge_db_impl(
 
         Ok(quote! {
             impl DBEdgeDocument for #document_name {
-                fn db_from(&self) -> &Option<DBId> {
+                fn db_from(&self) -> &Option<DBId<Self::Key, Self::CollectionType>> {
                     &self.#from_field
                 }
 
-                fn db_to(&self) -> &Option<DBId> {
+                fn db_to(&self) -> &Option<DBId<Self::Key, Self::CollectionType>> {
                     &self.#to_field
                 }
             }
@@ -1170,7 +1176,7 @@ pub fn build_db_struct_aql_mapping_impl(
     imports.insert("::arangodb_types::traits::AQLMapping".to_string());
 
     Ok(quote! {
-        impl#generics AQLMapping for #document_name#generics {
+        impl #generics AQLMapping for #document_name #generics {
             #include_let_steps_method
 
             #[allow(unused_variables)]

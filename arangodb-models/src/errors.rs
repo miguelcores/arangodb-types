@@ -31,7 +31,7 @@ impl Display for Error {
             Error::Message(v) => f.write_str(v),
             Error::UnexpectedItem => f.write_str("Unexpected element"),
             Error::MissingKeyField => {
-                f.write_str("The key field is missing, please add a field with name 'db_name' and database name '_key'")
+                f.write_str("The key field is missing, please add a field with name 'db_key' and database name '_key'")
             }
             Error::MissingStructItem => f.write_str("A struct is required as the first element"),
             Error::MissingStructOrEnumItem => {

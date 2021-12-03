@@ -33,9 +33,14 @@ pub fn process_model(file: File) -> Result<TokenStream, syn::Error> {
         vec![]
     };
 
-    Ok(quote! {
+    let tokens = quote! {
         #(#imports)*
         #db
         #api
-    })
+    };
+
+    // Keep this for debugging purpose.
+    // return Err(crate::errors::Error::Message(tokens.to_string()).with_tokens(file));
+
+    Ok(tokens)
 }

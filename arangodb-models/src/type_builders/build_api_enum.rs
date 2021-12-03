@@ -94,7 +94,7 @@ fn build_enum(
         #[serde(rename_all = "camelCase")]
         #[serde(tag = "T", content = "V")]
         #(#attribute_list)*
-        #visibility enum #document_name#generics {
+        #visibility enum #document_name #generics {
             #(#field_list)*
         }
     })
@@ -172,7 +172,7 @@ fn build_impl(
 
     // Build result.
     Ok(quote! {
-        impl#generics #document_name#generics {
+        impl #generics #document_name #generics {
             #(#is_method_list)*
             #map_values_to_null_method_tokens
 
@@ -266,8 +266,8 @@ fn build_from_to(
 
     // Build result.
     Ok(quote! {
-        impl#generics From<#document_name#generics> for #api_document_name#generics {
-            fn from(value: #document_name#generics) -> Self {
+        impl #generics From<#document_name #generics> for #api_document_name #generics {
+            fn from(value: #document_name #generics) -> Self {
                 let mut result = match value {
                     #(#to_api_field_list)*
                 };
@@ -278,8 +278,8 @@ fn build_from_to(
             }
         }
 
-        impl#generics From<#api_document_name#generics> for #document_name#generics {
-            fn from(value: #api_document_name#generics) -> Self {
+        impl #generics From<#api_document_name #generics> for #document_name #generics {
+            fn from(value: #api_document_name #generics) -> Self {
                 let mut result = match value {
                     #(#to_db_field_list)*
                 };
@@ -388,7 +388,7 @@ fn build_field_list(
 
     // Build result.
     Ok(quote! {
-        impl#generics #api_document_name#generics {
+        impl #generics #api_document_name #generics {
             pub fn variant(&self) -> #api_field_enum_name {
                 match self {
                     #(#get_variant_list)*
@@ -449,7 +449,7 @@ pub fn build_sensible_info_impl(
 
     // Build result.
     Ok(quote! {
-        impl#generics #api_document_name#generics {
+        impl #generics #api_document_name #generics {
             pub fn remove_sensible_info(&mut self) {
                 match self {
                     #(#sensible_info_fields)*

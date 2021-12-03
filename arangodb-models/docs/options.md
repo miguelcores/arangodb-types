@@ -19,7 +19,7 @@ The macro options are introduced at the beginning using the pattern:
 - `#![sync_collection_key_method = ".."]`: replaces the default name for the method used to get the key of the document
   that represents the collection in DB.
 - `#![collection_name = ".."]`: replaces the default name for the collection.
-- `#![collection_kind = ".."]`: replaces the default `CollectionKind` enum by another one.
+- `#![collection_type = ".."]`: replaces the default `CollectionKind` enum by another one.
 - `#![collection_kind = ".."]`: replaces the default name for `CollectionKind` enum.
 - `#![replace_normalize = ".."]`: replaces the normalize method by the one specified.
 - `#![replace_normalize_fields = ".."]`: replaces the normalize_fields method by the one specified.

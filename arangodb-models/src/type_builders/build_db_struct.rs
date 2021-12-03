@@ -94,7 +94,7 @@ fn build_struct(
         #[serde(rename_all = "camelCase")]
         #default_attribute
         #(#attribute_list)*
-        #visibility struct #document_name#generics {
+        #visibility struct #document_name #generics {
             #(#field_list)*
         }
     })
@@ -407,6 +407,7 @@ fn build_impl(
         method_name.to_token_stream()
     } else if let Some(method_name) = &options.replace_normalize {
         imports.insert("::arangodb_types::traits::DBNormalizeResult".to_string());
+        imports.insert("::arangodb_types::traits::DBNormalize".to_string());
 
         quote! {
             fn normalize(&mut self) -> DBNormalizeResult {
@@ -416,6 +417,7 @@ fn build_impl(
     } else {
         let normalize_field_list = fields_in_db.iter().filter_map(|field| {
             imports.insert("::arangodb_types::traits::DBNormalizeResult".to_string());
+            imports.insert("::arangodb_types::traits::DBNormalize".to_string());
 
             if field.attributes.skip_normalize {
                 return None;
@@ -585,7 +587,7 @@ fn build_impl(
     imports.insert("::arangodb_types::traits::DBNormalize".to_string());
 
     Ok(quote! {
-        impl#generics #document_name#generics {
+        impl #generics #document_name #generics {
             #is_all_missing_method_tokens
             #is_all_null_method_tokens
             #all_null_method_tokens
@@ -593,7 +595,7 @@ fn build_impl(
             #filter_method_tokens
         }
 
-        impl#generics DBNormalize for #document_name#generics {
+        impl #generics DBNormalize for #document_name #generics {
             #normalize_or_remove_method_tokens
         }
     })

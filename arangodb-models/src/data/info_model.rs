@@ -246,7 +246,7 @@ impl<'a> ModelInfo<'a> {
     pub fn get_key_field(&self) -> Option<&FieldInfo<'a>> {
         self.item_fields
             .iter()
-            .find(|field| field.db_name == "_key" && *field.name() == "db_name")
+            .find(|field| field.db_name == "_key" && *field.name() == "db_key")
     }
 
     // METHODS ----------------------------------------------------------------
@@ -254,10 +254,8 @@ impl<'a> ModelInfo<'a> {
     fn check_names(&self, options: &ModelOptions) -> Result<(), syn::Error> {
         let mut names = HashSet::with_capacity(self.item_fields.len());
 
-        let key = "_key".to_string();
         let rev = "_rev".to_string();
         let mutex = MUTEX_FIELD_DB_NAME.to_string();
-        names.insert(&key);
         names.insert(&rev);
 
         if options.sync_level.is_document_active() {

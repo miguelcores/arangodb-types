@@ -114,7 +114,7 @@ pub fn build_api_struct(
         #[serde(rename_all = "camelCase")]
         #default_attribute
         #(#attribute_list)*
-        #visibility struct #api_document_name#generics {
+        #visibility struct #api_document_name #generics {
             #id_field
 
             #(#field_list)*
@@ -395,9 +395,9 @@ pub fn build_from_to(
 
     // Build result.
     Ok(quote! {
-        impl#generics From<#document_name#generics> for #api_document_name#generics {
+        impl #generics From<#document_name #generics> for #api_document_name #generics {
             #[allow(clippy::needless_update)]
-            fn from(value: #document_name#generics) -> Self {
+            fn from(value: #document_name #generics) -> Self {
                  let mut result = Self {
                     #to_api_id_field
                     #(#to_api_field_list)*
@@ -410,9 +410,9 @@ pub fn build_from_to(
             }
         }
 
-        impl#generics From<#api_document_name#generics> for #document_name#generics {
+        impl #generics From<#api_document_name #generics> for #document_name #generics {
             #[allow(clippy::needless_update)]
-            fn from(value: #api_document_name#generics) -> Self {
+            fn from(value: #api_document_name #generics) -> Self {
                 let mut result = Self {
                     #to_db_key_field
                     #(#to_db_field_list)*
@@ -610,7 +610,7 @@ fn build_api_document_impl(
         impl APIDocument for #api_document_name {
             // GETTERS --------------------------------------------------------
 
-            fn id(&self) -> &Option<DBUuid> {
+            fn id(&self) -> &Option<Self::Key> {
                 &self.id
             }
 
@@ -715,7 +715,7 @@ fn build_paginated(
 
     // Build result.
     Ok(quote! {
-        impl#generics PaginatedDocument for #api_document_name#generics {
+        impl #generics PaginatedDocument for #api_document_name #generics {
             type Field = #api_field_enum_name;
             type DBDocument = #db_document_name;
 
@@ -962,7 +962,7 @@ pub fn build_api_struct_sensible_info_impl(
 
     // Build result.
     Ok(quote! {
-        impl#generics #api_document_name#generics {
+        impl #generics #api_document_name #generics {
             pub fn remove_sensible_info(&mut self) {
                 #(#sensible_info_fields)*
             }
