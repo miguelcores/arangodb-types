@@ -7,6 +7,7 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::traits::{DBNormalize, DBNormalizeResult};
 
+/// A datetime stored in DB as a UNIX milliseconds timestamp.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DBDateTime(pub chrono::DateTime<Utc>);
 

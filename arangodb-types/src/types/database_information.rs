@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::error::Error;
 
-use arangors::{ClientError, GenericConnection};
+use arangors::{ClientError, Connection, GenericConnection};
 use serde::Deserialize;
 use serde::Serialize;
 use uclient::reqwest::ReqwestClient;
@@ -23,6 +23,27 @@ pub struct DBInfo {
 
 impl DBInfo {
     // CONSTRUCTORS -----------------------------------------------------------
+
+    pub async fn connect(
+        url: Cow<'static, str>,
+        database: Cow<'static, str>,
+        username: Cow<'static, str>,
+        password: Cow<'static, str>,
+    ) -> Result<DBInfo, Box<dyn Error>> {
+        let connection = Connection::establish_jwt(&url, &username, &password).await?;
+
+        let database = match connection.create_database(&database).await {
+            Ok(v) => v,
+            Err(_) => connection.db(&database).await?,
+        };
+
+        Ok(DBInfo {
+            username,
+            password,
+            connection,
+            database,
+        })
+    }
 
     pub fn new(
         username: Cow<'static, str>,

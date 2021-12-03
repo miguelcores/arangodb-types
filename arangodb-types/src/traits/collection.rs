@@ -7,6 +7,8 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::aql::AqlBuilder;
+use crate::aql::AqlLet;
+use crate::aql::AqlLetKind;
 use crate::aql::AqlLimit;
 use crate::aql::AqlResult;
 use crate::aql::AqlReturn;
@@ -23,7 +25,7 @@ use crate::types::Database;
 
 #[async_trait]
 pub trait DBCollection: Send + Sync {
-    type Document: DBDocument;
+    type Document: DBDocument<Collection = Self>;
 
     // GETTERS ----------------------------------------------------------------
 
@@ -43,12 +45,15 @@ pub trait DBCollection: Send + Sync {
         &self.db_info().database
     }
 
+    /// Returns the instance associated with the collection.
+    fn instance() -> Arc<Self>;
+
     // METHODS ----------------------------------------------------------------
 
     /// Checks whether a document exists in the DB by its key.
     async fn exists_by_key(
         &self,
-        key: &<<Self as crate::traits::collection::DBCollection>::Document as DBDocument>::Key,
+        key: &<Self::Document as DBDocument>::Key,
     ) -> Result<bool, Box<dyn Error>> {
         Ok(self.get_one_by_key(key, None).await?.is_some())
     }
@@ -93,6 +98,70 @@ pub trait DBCollection: Send + Sync {
             .get_one_by(&DBDocumentField::Key.path(), &key, return_fields)
             .await?;
         Ok(result)
+    }
+
+    /// Gets a list of documents from the DB by their keys.
+    async fn get_list_by_key(
+        &self,
+        keys: &[<<Self as crate::traits::collection::DBCollection>::Document as DBDocument>::Key],
+        return_fields: Option<&Self::Document>,
+    ) -> Result<Vec<Option<Self::Document>>, Box<dyn Error>> {
+        // Prepare AQL.
+        // FOR i IN <keys>
+        //     LET o = Document(<collection>, i)
+        //     RETURN o
+        let document_key = "o";
+        let mut aql = AqlBuilder::new_for_in_list(AQL_DOCUMENT_ID, keys);
+        aql.let_step(AqlLet {
+            variable: document_key,
+            expression: AqlLetKind::Expression(
+                format!("DOCUMENT({}, {})", Self::name(), AQL_DOCUMENT_ID).into(),
+            ),
+        });
+
+        if let Some(fields) = return_fields {
+            aql.return_step_with_fields(document_key, fields);
+        } else {
+            aql.return_step(AqlReturn::new_expression(document_key.into()));
+        }
+
+        let aql_result = self
+            .send_generic_aql::<Option<Self::Document>>(&aql)
+            .await?;
+
+        Ok(aql_result.results)
+    }
+
+    /// Gets a list of documents from the DB by their keys filtering those that cannot be found.
+    async fn get_list_by_key_and_filter(
+        &self,
+        keys: &[<<Self as crate::traits::collection::DBCollection>::Document as DBDocument>::Key],
+        return_fields: Option<&Self::Document>,
+    ) -> Result<Vec<Self::Document>, Box<dyn Error>> {
+        // Prepare AQL.
+        // FOR i IN <keys>
+        //     LET o = Document(<collection>, i)
+        //     FILTER o != null
+        //     RETURN o
+        let document_key = "o";
+        let mut aql = AqlBuilder::new_for_in_list(AQL_DOCUMENT_ID, keys);
+        aql.let_step(AqlLet {
+            variable: document_key,
+            expression: AqlLetKind::Expression(
+                format!("DOCUMENT({}, {})", Self::name(), AQL_DOCUMENT_ID).into(),
+            ),
+        });
+        aql.filter_step(format!("{} != null", document_key).into());
+
+        if let Some(fields) = return_fields {
+            aql.return_step_with_fields(document_key, fields);
+        } else {
+            aql.return_step(AqlReturn::new_expression(document_key.into()));
+        }
+
+        let aql_result = self.send_aql(&aql).await?;
+
+        Ok(aql_result.results)
     }
 
     /// Gets a document from the DB by a single custom property.
@@ -315,6 +384,13 @@ pub trait DBCollection: Send + Sync {
         }
 
         return Err(format!("Maximum AQL retries reached for '{:?}'", aql).into());
+    }
+
+    /// Removes all documents from the collection.
+    async fn truncate(&self) -> Result<(), Box<dyn Error>> {
+        let db_info = self.db_collection().await?;
+        db_info.truncate().await?;
+        Ok(())
     }
 
     /// Drops the collection.

@@ -27,7 +27,7 @@ pub trait DBDocument:
         + Serialize
         + for<'de> Deserialize<'de>;
     type CollectionType: ToString + Send + Sync;
-    type Collection: DBCollection;
+    type Collection: DBCollection<Document = Self>;
 
     // GETTERS ----------------------------------------------------------------
 
