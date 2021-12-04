@@ -625,6 +625,8 @@ fn build_aql_mapping_impl(
             }
         });
 
+        imports.insert("::arangodb_types::aql::AqlBuilder".to_string());
+
         quote! {
             #[allow(unused_variables)]
             fn include_let_steps(&self, aql: &mut AqlBuilder, path: &str, next_id: &mut usize) {

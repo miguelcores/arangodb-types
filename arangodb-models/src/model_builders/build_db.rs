@@ -975,6 +975,8 @@ pub fn build_db_struct_aql_mapping_impl(
         .collect();
 
     let include_let_steps_method = if !include_let_steps_fields.is_empty() {
+        imports.insert("::arangodb_types::aql::AqlBuilder".to_string());
+
         quote! {
             #[allow(unused_variables)]
             fn include_let_steps(&self, aql: &mut AqlBuilder, path: &str, next_id: &mut usize) {
