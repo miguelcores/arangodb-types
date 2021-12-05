@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::fmt;
 use std::fmt::Display;
 
@@ -6,7 +5,7 @@ use std::fmt::Display;
 pub enum DBMutexError {
     NotFound,
     Timeout,
-    Other(Box<dyn Error>),
+    Other(anyhow::Error),
 }
 
 impl Display for DBMutexError {
@@ -19,8 +18,8 @@ impl Display for DBMutexError {
     }
 }
 
-impl From<Box<dyn Error>> for DBMutexError {
-    fn from(e: Box<dyn Error>) -> Self {
+impl From<anyhow::Error> for DBMutexError {
+    fn from(e: anyhow::Error) -> Self {
         DBMutexError::Other(e)
     }
 }

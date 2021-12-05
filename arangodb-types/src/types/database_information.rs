@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::error::Error;
 
 use arangors::{ClientError, Connection, GenericConnection};
 use serde::Deserialize;
@@ -29,7 +28,7 @@ impl DBInfo {
         database: Cow<'static, str>,
         username: Cow<'static, str>,
         password: Cow<'static, str>,
-    ) -> Result<DBInfo, Box<dyn Error>> {
+    ) -> Result<DBInfo, anyhow::Error> {
         let connection = Connection::establish_jwt(&url, &username, &password).await?;
 
         let database = match connection.create_database(&database).await {
@@ -79,7 +78,7 @@ impl DBInfo {
         name: &str,
         code: &str,
         is_deterministic: bool,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), anyhow::Error> {
         let client = self.connection.session();
         let response = client
             .client
@@ -100,12 +99,12 @@ impl DBInfo {
                     .text()
                     .await
                     .unwrap_or_else(|_| "<undefined>".to_string());
-                Err(text.into())
+                Err(anyhow::anyhow!(text))
             }
         }
     }
 
-    pub async fn remove_all_aql_function(&self, namespace: &str) -> Result<(), Box<dyn Error>> {
+    pub async fn remove_all_aql_function(&self, namespace: &str) -> Result<(), anyhow::Error> {
         let client = self.connection.session();
         let response = client
             .client
@@ -125,7 +124,7 @@ impl DBInfo {
                     .text()
                     .await
                     .unwrap_or_else(|_| "<undefined>".to_string());
-                Err(text.into())
+                Err(anyhow::anyhow!(text))
             }
         }
     }

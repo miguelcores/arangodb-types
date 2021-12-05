@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use async_trait::async_trait;
 
 use crate::aql::AqlBuilder;
@@ -21,7 +19,7 @@ pub trait DBEdgeCollection: DBCollection {
         &self,
         key: &DBId<<<Self as crate::traits::collection::DBCollection>::Document as DBDocument>::Key, <<Self as crate::traits::collection::DBCollection>::Document as DBDocument>::CollectionType>,
         return_fields: Option<&Self::Document>,
-    ) -> Result<Option<Self::Document>, Box<dyn Error>> {
+    ) -> Result<Option<Self::Document>, anyhow::Error> {
         let result = self
             .get_one_by(&DBDocumentField::From.path(), &key, return_fields)
             .await?;
@@ -33,7 +31,7 @@ pub trait DBEdgeCollection: DBCollection {
         &self,
         key: &DBId<<<Self as crate::traits::collection::DBCollection>::Document as DBDocument>::Key, <<Self as crate::traits::collection::DBCollection>::Document as DBDocument>::CollectionType>,
         return_fields: Option<&Self::Document>,
-    ) -> Result<Option<Self::Document>, Box<dyn Error>> {
+    ) -> Result<Option<Self::Document>, anyhow::Error> {
         let result = self
             .get_one_by(&DBDocumentField::To.path(), &key, return_fields)
             .await?;
@@ -46,7 +44,7 @@ pub trait DBEdgeCollection: DBCollection {
         from: &DBId<<<Self as crate::traits::collection::DBCollection>::Document as DBDocument>::Key, <<Self as crate::traits::collection::DBCollection>::Document as DBDocument>::CollectionType>,
         to: &DBId<<<Self as crate::traits::collection::DBCollection>::Document as DBDocument>::Key, <<Self as crate::traits::collection::DBCollection>::Document as DBDocument>::CollectionType>,
         return_fields: Option<&Self::Document>,
-    ) -> Result<Option<Self::Document>, Box<dyn Error>> {
+    ) -> Result<Option<Self::Document>, anyhow::Error> {
         // Prepare AQL.
         // FOR i IN <collection>
         //      FILTER i._from == <from> && i._to == <to>

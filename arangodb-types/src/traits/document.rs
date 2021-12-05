@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::fmt::Debug;
 use std::hash::Hash;
 
 use arangors::document::options::{InsertOptions, OverwriteMode, RemoveOptions, UpdateOptions};
@@ -16,7 +16,8 @@ use crate::types::DBId;
 pub trait DBDocument:
     Send + Sync + Clone + Serialize + for<'de> Deserialize<'de> + AQLMapping
 {
-    type Key: ToString
+    type Key: Debug
+        + ToString
         + Eq
         + PartialEq
         + Clone
@@ -61,7 +62,7 @@ pub trait DBDocument:
         mut self,
         overwrite: bool,
         collection: &Self::Collection,
-    ) -> Result<Self, Box<dyn Error>> {
+    ) -> Result<Self, anyhow::Error> {
         let db_collection = collection.db_collection().await?;
 
         loop {
@@ -95,7 +96,7 @@ pub trait DBDocument:
         mut self,
         overwrite: bool,
         collection: &Self::Collection,
-    ) -> Result<Self::Key, Box<dyn Error>> {
+    ) -> Result<Self::Key, anyhow::Error> {
         let db_collection = collection.db_collection().await?;
 
         loop {
@@ -128,7 +129,7 @@ pub trait DBDocument:
         &self,
         merge_objects: bool,
         collection: &Self::Collection,
-    ) -> Result<Self, Box<dyn Error>> {
+    ) -> Result<Self, anyhow::Error> {
         let db_collection = collection.db_collection().await?;
 
         let ignore_rev = self.db_rev().is_none();
@@ -175,7 +176,7 @@ pub trait DBDocument:
         &self,
         merge_objects: bool,
         collection: &Self::Collection,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), anyhow::Error> {
         let db_collection = collection.db_collection().await?;
 
         let ignore_rev = self.db_rev().is_none();
@@ -221,7 +222,7 @@ pub trait DBDocument:
         mut self,
         merge_objects: bool,
         collection: &Self::Collection,
-    ) -> Result<Self, Box<dyn Error>> {
+    ) -> Result<Self, anyhow::Error> {
         let db_collection = collection.db_collection().await?;
 
         loop {
@@ -256,7 +257,7 @@ pub trait DBDocument:
         mut self,
         merge_objects: bool,
         collection: &Self::Collection,
-    ) -> Result<Self::Key, Box<dyn Error>> {
+    ) -> Result<Self::Key, anyhow::Error> {
         let db_collection = collection.db_collection().await?;
 
         loop {
@@ -289,7 +290,7 @@ pub trait DBDocument:
         &self,
         rev: Option<ArcStr>,
         collection: &Self::Collection,
-    ) -> Result<Self, Box<dyn Error>> {
+    ) -> Result<Self, anyhow::Error> {
         let db_collection = collection.db_collection().await?;
 
         let key = self
@@ -333,7 +334,7 @@ pub trait DBDocument:
         &self,
         rev: Option<ArcStr>,
         collection: &Self::Collection,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), anyhow::Error> {
         let db_collection = collection.db_collection().await?;
 
         let key = self

@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use serde::{Deserialize, Serialize};
 
 pub use expressions::*;
@@ -105,11 +103,7 @@ impl<T: PaginatedDocumentField> APIFilter<T> {
         }
     }
 
-    pub fn build_aql(
-        &self,
-        query: &mut String,
-        aql: &mut AqlBuilder,
-    ) -> Result<(), Box<dyn Error>> {
+    pub fn build_aql(&self, query: &mut String, aql: &mut AqlBuilder) -> Result<(), anyhow::Error> {
         self.build_aql_core(query, aql)
     }
 
@@ -117,7 +111,7 @@ impl<T: PaginatedDocumentField> APIFilter<T> {
         &self,
         query: &mut String,
         aql: &mut AqlBuilder,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), anyhow::Error> {
         match self {
             APIFilter::Expression(v) => {
                 v.build_aql(query, aql)?;

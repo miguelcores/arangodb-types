@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use serde::{Deserialize, Serialize};
 
 use crate::aql::AqlBuilder;
@@ -39,11 +37,7 @@ impl<T: PaginatedDocumentField> APIFilterExpression<T> {
         self.right.calculate_stats(stats);
     }
 
-    pub fn build_aql(
-        &self,
-        query: &mut String,
-        aql: &mut AqlBuilder,
-    ) -> Result<(), Box<dyn Error>> {
+    pub fn build_aql(&self, query: &mut String, aql: &mut AqlBuilder) -> Result<(), anyhow::Error> {
         self.left.build_aql(query, aql)?;
         query.push(' ');
         self.operator.build_aql(query);

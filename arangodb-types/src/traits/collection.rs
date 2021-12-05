@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::error::Error;
 use std::sync::Arc;
 
 use arangors::{AqlOptions, AqlQuery};
@@ -36,7 +35,7 @@ pub trait DBCollection: Send + Sync {
     fn db_info(&self) -> &Arc<DBInfo>;
 
     /// Gets the arangodb instance of this collection.
-    async fn db_collection(&self) -> Result<Collection, Box<dyn Error>> {
+    async fn db_collection(&self) -> Result<Collection, anyhow::Error> {
         let db_info = self.db_info();
         Ok(db_info.database.collection(Self::name()).await?)
     }
@@ -51,7 +50,7 @@ pub trait DBCollection: Send + Sync {
     async fn exists_by_key(
         &self,
         key: &<Self::Document as DBDocument>::Key,
-    ) -> Result<bool, Box<dyn Error>> {
+    ) -> Result<bool, anyhow::Error> {
         Ok(self.get_one_by_key(key, None).await?.is_some())
     }
 
@@ -60,7 +59,7 @@ pub trait DBCollection: Send + Sync {
         &self,
         property_path: &str,
         value: &V,
-    ) -> Result<bool, Box<dyn Error>> {
+    ) -> Result<bool, anyhow::Error> {
         Ok(self.get_one_by(property_path, value, None).await?.is_some())
     }
 
@@ -68,7 +67,7 @@ pub trait DBCollection: Send + Sync {
     async fn get_all(
         &self,
         return_fields: Option<&Self::Document>,
-    ) -> Result<Vec<Self::Document>, Box<dyn Error>> {
+    ) -> Result<Vec<Self::Document>, anyhow::Error> {
         // Prepare AQL.
         // FOR i IN <collection>
         //      RETURN i
@@ -90,7 +89,7 @@ pub trait DBCollection: Send + Sync {
         &self,
         key: &<<Self as crate::traits::collection::DBCollection>::Document as DBDocument>::Key,
         return_fields: Option<&Self::Document>,
-    ) -> Result<Option<Self::Document>, Box<dyn Error>> {
+    ) -> Result<Option<Self::Document>, anyhow::Error> {
         let result = self
             .get_one_by(&DBDocumentField::Key.path(), &key, return_fields)
             .await?;
@@ -102,7 +101,7 @@ pub trait DBCollection: Send + Sync {
         &self,
         keys: &[<<Self as crate::traits::collection::DBCollection>::Document as DBDocument>::Key],
         return_fields: Option<&Self::Document>,
-    ) -> Result<Vec<Option<Self::Document>>, Box<dyn Error>> {
+    ) -> Result<Vec<Option<Self::Document>>, anyhow::Error> {
         // Prepare AQL.
         // FOR i IN <keys>
         //     LET o = Document(<collection>, i)
@@ -134,7 +133,7 @@ pub trait DBCollection: Send + Sync {
         &self,
         keys: &[<<Self as crate::traits::collection::DBCollection>::Document as DBDocument>::Key],
         return_fields: Option<&Self::Document>,
-    ) -> Result<Vec<Self::Document>, Box<dyn Error>> {
+    ) -> Result<Vec<Self::Document>, anyhow::Error> {
         // Prepare AQL.
         // FOR i IN <keys>
         //     LET o = Document(<collection>, i)
@@ -169,7 +168,7 @@ pub trait DBCollection: Send + Sync {
         property_path: &str,
         value: &V,
         return_fields: Option<&Self::Document>,
-    ) -> Result<Option<Self::Document>, Box<dyn Error>> {
+    ) -> Result<Option<Self::Document>, anyhow::Error> {
         let mut result = self
             .get_many_by(property_path, value, Some(1), return_fields)
             .await?;
@@ -185,7 +184,7 @@ pub trait DBCollection: Send + Sync {
         value: &V,
         limit: Option<u64>,
         return_fields: Option<&Self::Document>,
-    ) -> Result<Vec<Self::Document>, Box<dyn Error>> {
+    ) -> Result<Vec<Self::Document>, anyhow::Error> {
         // Prepare AQL.
         // FOR i IN <collection>
         //      FILTER i.<property> == <value>
@@ -225,7 +224,7 @@ pub trait DBCollection: Send + Sync {
     async fn update_list_with_retries(
         &self,
         documents: &[Self::Document],
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), anyhow::Error> {
         // FOR i IN <documents>
         //      UPDATE i WITH i IN <collection> OPTIONS { ignoreErrors: true }
         //      RETURN NEW._key
@@ -271,7 +270,7 @@ pub trait DBCollection: Send + Sync {
     async fn send_aql<'a>(
         &self,
         aql: &AqlBuilder<'a>,
-    ) -> Result<AqlResult<Self::Document>, Box<dyn Error>> {
+    ) -> Result<AqlResult<Self::Document>, anyhow::Error> {
         self.send_generic_aql(aql).await
     }
 
@@ -279,7 +278,7 @@ pub trait DBCollection: Send + Sync {
     async fn send_generic_aql<'a, R: Send + Sync + for<'de> Deserialize<'de>>(
         &self,
         aql: &AqlBuilder<'a>,
-    ) -> Result<AqlResult<R>, Box<dyn Error>> {
+    ) -> Result<AqlResult<R>, anyhow::Error> {
         let db_info = self.db_info();
 
         let batch_size = aql.batch_size();
@@ -348,7 +347,7 @@ pub trait DBCollection: Send + Sync {
         &self,
         aql: &mut AqlBuilder<'a>,
         checker: F,
-    ) -> Result<(), Box<dyn Error>>
+    ) -> Result<(), anyhow::Error>
     where
         F: FnMut(AqlResult<Self::Document>, &mut AqlBuilder<'a>) -> bool + Send,
     {
@@ -365,7 +364,7 @@ pub trait DBCollection: Send + Sync {
         &self,
         aql: &mut AqlBuilder<'a>,
         mut checker: F,
-    ) -> Result<(), Box<dyn Error>>
+    ) -> Result<(), anyhow::Error>
     where
         F: FnMut(AqlResult<R>, &mut AqlBuilder<'a>) -> bool + Send,
     {
@@ -380,18 +379,21 @@ pub trait DBCollection: Send + Sync {
             aql_retry += 1;
         }
 
-        return Err(format!("Maximum AQL retries reached for '{:?}'", aql).into());
+        return Err(anyhow::anyhow!(
+            "Maximum AQL retries reached for '{:?}'",
+            aql
+        ));
     }
 
     /// Removes all documents from the collection.
-    async fn truncate(&self) -> Result<(), Box<dyn Error>> {
+    async fn truncate(&self) -> Result<(), anyhow::Error> {
         let db_info = self.db_collection().await?;
         db_info.truncate().await?;
         Ok(())
     }
 
     /// Drops the colle ction.
-    async fn drop_collection(&self) -> Result<(), Box<dyn Error>> {
+    async fn drop_collection(&self) -> Result<(), anyhow::Error> {
         let db_info = self.db_collection().await?;
         db_info.drop().await?;
         Ok(())

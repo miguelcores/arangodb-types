@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::fmt::Write;
 
 use serde::{Deserialize, Serialize};
@@ -52,11 +51,7 @@ impl<T: PaginatedDocumentField> APIFilterField<T> {
         }
     }
 
-    pub fn build_aql(
-        &self,
-        query: &mut String,
-        aql: &mut AqlBuilder,
-    ) -> Result<(), Box<dyn Error>> {
+    pub fn build_aql(&self, query: &mut String, aql: &mut AqlBuilder) -> Result<(), anyhow::Error> {
         match self {
             APIFilterField::Field(v) => {
                 query
@@ -68,7 +63,7 @@ impl<T: PaginatedDocumentField> APIFilterField<T> {
                 let index = match aql.add_variable_as_json(param) {
                     Some(v) => v,
                     None => {
-                        return Err("There's no more variables available".into());
+                        return Err(anyhow::anyhow!("There's no more variables available"));
                     }
                 };
                 query.push_str(index);
@@ -107,11 +102,7 @@ impl<T: PaginatedDocumentField> APIFilterFieldFunction<T> {
         }
     }
 
-    pub fn build_aql(
-        &self,
-        query: &mut String,
-        aql: &mut AqlBuilder,
-    ) -> Result<(), Box<dyn Error>> {
+    pub fn build_aql(&self, query: &mut String, aql: &mut AqlBuilder) -> Result<(), anyhow::Error> {
         match self.name {
             APIFilterFieldFunctionKind::Length => query.push_str("LENGTH"),
             APIFilterFieldFunctionKind::Nth => query.push_str("NTH"),

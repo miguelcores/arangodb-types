@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -35,46 +33,47 @@ pub struct PaginatedSortByRequest<F: PaginatedDocumentField> {
 impl<F: PaginatedDocumentField> PaginatedRequest<F> {
     // METHODS ----------------------------------------------------------------
 
-    pub fn validate(&self, context: &F::Context) -> Result<(), Box<dyn Error>> {
+    pub fn validate(&self, context: &F::Context) -> Result<(), anyhow::Error> {
         // Validate the sort_by.
         if self.sort_by.len() > 3 {
-            return Err("The sortBy field cannot be longer than 3 fields".into());
+            return Err(anyhow::anyhow!(
+                "The sortBy field cannot be longer than 3 fields"
+            ));
         }
 
         for sort_by in &self.sort_by {
             if !sort_by.field.is_valid_for_sorting(context) {
-                return Err(format!(
+                return Err(anyhow::anyhow!(
                     "The field '{}' is not valid for filtering",
                     serde_json::to_string(&sort_by.field).unwrap()
-                )
-                .into());
+                ));
             }
         }
 
         // Validate the filter_by.
         if let Some(filter_by) = &self.filter_by {
             if filter_by.validate(context).is_err() {
-                return Err("Incorrect filterBy field".into());
+                return Err(anyhow::anyhow!("Incorrect filterBy field"));
             }
         }
 
         // Validate rows.
         let minimum_rows = F::min_rows_per_page();
         if self.rows_per_page < minimum_rows {
-            return Err(format!(
+            return Err(anyhow::anyhow!(
                 "The minimum rows per page is {}. Current: {}",
-                minimum_rows, self.rows_per_page
-            )
-            .into());
+                minimum_rows,
+                self.rows_per_page
+            ));
         }
 
         let maximum_rows = F::max_rows_per_page();
         if self.rows_per_page > maximum_rows {
-            return Err(format!(
+            return Err(anyhow::anyhow!(
                 "The maximum rows per page is {}. Current: {}",
-                maximum_rows, self.rows_per_page
-            )
-            .into());
+                maximum_rows,
+                self.rows_per_page
+            ));
         }
 
         Ok(())
@@ -83,7 +82,7 @@ impl<F: PaginatedDocumentField> PaginatedRequest<F> {
     pub fn normalize(
         &mut self,
         filter_stats: &APIFilteringStatsConfig,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), anyhow::Error> {
         if let Some(fields_filter) = &mut self.fields_filter {
             fields_filter.map_values_to_null();
         }
@@ -99,9 +98,9 @@ impl<F: PaginatedDocumentField> PaginatedRequest<F> {
                 || stats.expression_count > filter_stats.expression_count
                 || stats.function_count > filter_stats.function_count
             {
-                return Err(
-                    "The filterBy property contains too many elements to be executed".into(),
-                );
+                return Err(anyhow::anyhow!(
+                    "The filterBy property contains too many elements to be executed"
+                ));
             }
 
             self.filter_by = Some(filter_by.normalize());
@@ -110,7 +109,7 @@ impl<F: PaginatedDocumentField> PaginatedRequest<F> {
         Ok(())
     }
 
-    pub fn build_aql(self, collection: &str) -> Result<AqlBuilder, Box<dyn Error>> {
+    pub fn build_aql(self, collection: &str) -> Result<AqlBuilder, anyhow::Error> {
         // FOR i IN <collection>
         //      FILTER ..
         //      SORT ..
@@ -120,7 +119,7 @@ impl<F: PaginatedDocumentField> PaginatedRequest<F> {
         self.build_aql_using(aql)
     }
 
-    pub fn build_aql_using(self, mut aql: AqlBuilder) -> Result<AqlBuilder, Box<dyn Error>> {
+    pub fn build_aql_using(self, mut aql: AqlBuilder) -> Result<AqlBuilder, anyhow::Error> {
         // FOR i IN <collection>
         //      FILTER ..
         //      SORT ..

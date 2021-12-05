@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::error::Error;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -97,7 +96,7 @@ impl<T: 'static + DBSynchronizedDocument<'static>> BDMutexGuard<T> {
         node_id: &ArcStr,
         fields: Option<&T>,
         collection: &Arc<T::Collection>,
-    ) -> Result<(Vec<Option<T>>, BDMutexGuard<T>), Box<dyn Error>> {
+    ) -> Result<(Vec<Option<T>>, BDMutexGuard<T>), anyhow::Error> {
         // Shortcut for empty sets.
         if keys.is_empty() {
             return Ok((
@@ -229,7 +228,7 @@ impl<T: 'static + DBSynchronizedDocument<'static>> BDMutexGuard<T> {
         node_id: &ArcStr,
         fields: Option<&T>,
         collection: &Arc<T::Collection>,
-    ) -> Result<(Vec<T>, BDMutexGuard<T>), Box<dyn Error>> {
+    ) -> Result<(Vec<T>, BDMutexGuard<T>), anyhow::Error> {
         let collection_name = T::Collection::name();
         let mutex_path = DBDocumentField::Mutex.path();
 

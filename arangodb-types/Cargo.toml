@@ -9,6 +9,7 @@ test = []
 db_mutex = ["log", "rand", "tokio"]
 
 [dependencies]
+anyhow = "1.0.51"
 arangors = { version = "0.5.0", features = ["arango3_7"] }
 arcstr = { version = "1.1.1", features = ["serde", "substr-usize-indices"] }
 async-trait = "0.1.51"
