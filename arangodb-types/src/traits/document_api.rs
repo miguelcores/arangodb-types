@@ -1,7 +1,18 @@
 use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
+use std::hash::Hash;
 
 pub trait APIDocument {
-    type Key: ToString + PartialEq + Clone + Serialize + for<'de> Deserialize<'de>;
+    type Key: Debug
+        + ToString
+        + Eq
+        + PartialEq
+        + Clone
+        + Hash
+        + Send
+        + Sync
+        + Serialize
+        + for<'de> Deserialize<'de>;
 
     // GETTERS ----------------------------------------------------------------
 
