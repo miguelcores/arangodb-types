@@ -606,8 +606,15 @@ fn build_api_document_impl(
     imports.insert("::arangodb_types::traits::APIDocument".to_string());
 
     // Build result.
+    let key_field = info.get_key_field().unwrap();
+    let inner_api_type = key_field.attributes.api_inner_type.as_ref();
+    let key_type = inner_api_type
+        .map(|v| v.to_token_stream())
+        .unwrap_or_else(|| key_field.inner_type.clone().unwrap());
     Ok(quote! {
         impl APIDocument for #api_document_name {
+            type Key = #key_type;
+
             // GETTERS --------------------------------------------------------
 
             fn id(&self) -> &Option<Self::Key> {
