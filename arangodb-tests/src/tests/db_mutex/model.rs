@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::fmt::Formatter;
 use std::sync::Arc;
 
@@ -17,7 +16,7 @@ pub struct MutexCollection {
 impl MutexCollection {
     // CONSTRUCTORS -----------------------------------------------------------
 
-    pub async fn new(db_info: &Arc<DBInfo>) -> Result<Arc<Self>, Box<dyn Error>> {
+    pub async fn new(db_info: &Arc<DBInfo>) -> Result<Arc<Self>, anyhow::Error> {
         let database = &db_info.database;
 
         // Initialize collection.

@@ -7,6 +7,7 @@ edition = "2021"
 [features]
 
 [dependencies]
+anyhow = "1.0.51"
 arcstr = { version = "1.1.1", features = ["serde", "substr-usize-indices"] }
 async-trait = "0.1.51"
 lazy_static = "1.4.0"
