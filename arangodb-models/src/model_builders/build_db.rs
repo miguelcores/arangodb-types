@@ -601,8 +601,7 @@ fn build_db_document_impl(
 
                     match field.field_type_kind {
                         Some(FieldTypeKind::NullableOption) => base.map(|base| {
-                            imports
-                                .insert("use ::arangodb_types::types::NullableOption".to_string());
+                            imports.insert("::arangodb_types::types::NullableOption".to_string());
 
                             quote! {
                                 match &filter.#name {
@@ -619,8 +618,7 @@ fn build_db_document_impl(
                             }
                         }),
                         Some(FieldTypeKind::Option) => base.map(|base| {
-                            imports
-                                .insert("use ::arangodb_types::types::NullableOption".to_string());
+                            imports.insert("::arangodb_types::types::NullableOption".to_string());
 
                             quote! {
                                 match &filter.#name {
