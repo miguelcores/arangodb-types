@@ -87,7 +87,7 @@ pub trait DBCollection: Send + Sync {
     /// Gets a document from the DB by its key.
     async fn get_one_by_key(
         &self,
-        key: &<<Self as crate::traits::collection::DBCollection>::Document as DBDocument>::Key,
+        key: &<<Self as DBCollection>::Document as DBDocument>::Key,
         return_fields: Option<&Self::Document>,
     ) -> Result<Option<Self::Document>, anyhow::Error> {
         let result = self
@@ -97,9 +97,11 @@ pub trait DBCollection: Send + Sync {
     }
 
     /// Gets a list of documents from the DB by their keys.
-    async fn get_list_by_key(
+    async fn get_many_by_key<
+        I: Iterator<Item = <<Self as DBCollection>::Document as DBDocument>::Key> + std::marker::Send,
+    >(
         &self,
-        keys: &[<<Self as crate::traits::collection::DBCollection>::Document as DBDocument>::Key],
+        iterator: I,
         return_fields: Option<&Self::Document>,
     ) -> Result<Vec<Option<Self::Document>>, anyhow::Error> {
         // Prepare AQL.
@@ -107,7 +109,7 @@ pub trait DBCollection: Send + Sync {
         //     LET o = Document(<collection>, i)
         //     RETURN o
         let document_key = "o";
-        let mut aql = AqlBuilder::new_for_in_list(AQL_DOCUMENT_ID, keys);
+        let mut aql = AqlBuilder::new_for_in_iterator(AQL_DOCUMENT_ID, iterator);
         aql.let_step(AqlLet {
             variable: document_key,
             expression: AqlLetKind::Expression(
@@ -129,9 +131,11 @@ pub trait DBCollection: Send + Sync {
     }
 
     /// Gets a list of documents from the DB by their keys filtering those that cannot be found.
-    async fn get_list_by_key_and_filter(
+    async fn get_many_by_key_and_filter<
+        I: Iterator<Item = <<Self as DBCollection>::Document as DBDocument>::Key> + std::marker::Send,
+    >(
         &self,
-        keys: &[<<Self as crate::traits::collection::DBCollection>::Document as DBDocument>::Key],
+        iterator: I,
         return_fields: Option<&Self::Document>,
     ) -> Result<Vec<Self::Document>, anyhow::Error> {
         // Prepare AQL.
@@ -140,7 +144,7 @@ pub trait DBCollection: Send + Sync {
         //     FILTER o != null
         //     RETURN o
         let document_key = "o";
-        let mut aql = AqlBuilder::new_for_in_list(AQL_DOCUMENT_ID, keys);
+        let mut aql = AqlBuilder::new_for_in_iterator(AQL_DOCUMENT_ID, iterator);
         aql.let_step(AqlLet {
             variable: document_key,
             expression: AqlLetKind::Expression(

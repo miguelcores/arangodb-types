@@ -6,7 +6,7 @@ use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::traits::{DBNormalize, DBNormalizeResult};
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Default, Debug, Clone, Eq, PartialEq)]
 pub struct DBDuration(u64);
 
 impl Serialize for DBDuration {
@@ -85,12 +85,6 @@ impl From<u64> for DBDuration {
 impl DBNormalize for DBDuration {
     fn normalize(&mut self) -> DBNormalizeResult {
         DBNormalizeResult::NotModified
-    }
-}
-
-impl Default for DBDuration {
-    fn default() -> Self {
-        Self(0)
     }
 }
 
