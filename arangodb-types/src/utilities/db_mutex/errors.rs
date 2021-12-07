@@ -1,3 +1,4 @@
+use std::error::Error;
 use std::fmt;
 use std::fmt::Display;
 
@@ -7,6 +8,8 @@ pub enum DBMutexError {
     Timeout,
     Other(anyhow::Error),
 }
+
+impl Error for DBMutexError {}
 
 impl Display for DBMutexError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
