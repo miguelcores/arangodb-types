@@ -5,7 +5,7 @@ use tokio::time::sleep;
 use arangodb_types::traits::DBCollection;
 use arangodb_types::traits::DBDocument;
 use arangodb_types::types::DBUuid;
-use arangodb_types::utilities::BDMutexGuard;
+use arangodb_types::utilities::DBMutexGuard;
 
 use crate::tests::constants::NODE_ID;
 use crate::tests::db_mutex::model::MutexDBDocument;
@@ -35,7 +35,7 @@ async fn release_list_auto() {
 
     // Execute.
     {
-        let (documents, _mutex) = BDMutexGuard::<MutexDBDocument>::acquire_list(
+        let (documents, _mutex) = DBMutexGuard::<MutexDBDocument>::acquire_list(
             &document_keys,
             &NODE_ID.into(),
             None,
@@ -88,7 +88,7 @@ async fn release_list_manually() {
     }
 
     // Execute.
-    let (documents, mutex) = BDMutexGuard::<MutexDBDocument>::acquire_list(
+    let (documents, mutex) = DBMutexGuard::<MutexDBDocument>::acquire_list(
         &document_keys,
         &NODE_ID.into(),
         None,

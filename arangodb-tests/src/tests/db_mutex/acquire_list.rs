@@ -3,7 +3,7 @@ use arangodb_types::traits::DBDocument;
 use arangodb_types::types::dates::DBDateTime;
 use arangodb_types::types::DBMutex;
 use arangodb_types::types::{DBUuid, NullableOption};
-use arangodb_types::utilities::BDMutexGuard;
+use arangodb_types::utilities::DBMutexGuard;
 
 use crate::tests::constants::NODE_ID;
 use crate::tests::db_mutex::model::MutexDBDocument;
@@ -32,7 +32,7 @@ async fn acquire_list_ok() {
     }
 
     // Execute.
-    let (documents, _mutex) = BDMutexGuard::<MutexDBDocument>::acquire_list(
+    let (documents, _mutex) = DBMutexGuard::<MutexDBDocument>::acquire_list(
         &document_keys,
         &NODE_ID.into(),
         None,
@@ -109,7 +109,7 @@ async fn acquire_list_mix() {
     }
 
     // Execute.
-    let (documents, _mutex) = BDMutexGuard::<MutexDBDocument>::acquire_list(
+    let (documents, _mutex) = DBMutexGuard::<MutexDBDocument>::acquire_list(
         &document_keys,
         &NODE_ID.into(),
         None,

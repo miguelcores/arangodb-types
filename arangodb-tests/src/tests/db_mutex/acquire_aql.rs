@@ -2,7 +2,7 @@ use arangodb_types::aql::{AqlLimit, AQL_DOCUMENT_ID};
 use arangodb_types::traits::DBCollection;
 use arangodb_types::traits::DBDocument;
 use arangodb_types::types::{DBUuid, NullableOption};
-use arangodb_types::utilities::BDMutexGuard;
+use arangodb_types::utilities::DBMutexGuard;
 
 use crate::tests::constants::NODE_ID;
 use crate::tests::db_mutex::model::MutexDBDocument;
@@ -53,7 +53,7 @@ async fn acquire_user_aql_ok() {
     );
 
     // Execute.
-    let (documents, _mutex) = BDMutexGuard::<MutexDBDocument>::acquire_aql(
+    let (documents, _mutex) = DBMutexGuard::<MutexDBDocument>::acquire_aql(
         Some(filter.as_str()),
         None,
         None,
@@ -111,7 +111,7 @@ async fn acquire_user_aql_with_limits_ok() {
     };
 
     // Execute.
-    let (documents, _mutex) = BDMutexGuard::<MutexDBDocument>::acquire_aql(
+    let (documents, _mutex) = DBMutexGuard::<MutexDBDocument>::acquire_aql(
         None,
         None,
         Some(limits),

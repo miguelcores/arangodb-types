@@ -6,7 +6,7 @@ use arangodb_types::constants::MUTEX_ALIVE_INTERVAL;
 use arangodb_types::traits::DBCollection;
 use arangodb_types::traits::DBDocument;
 use arangodb_types::types::DBUuid;
-use arangodb_types::utilities::BDMutexGuard;
+use arangodb_types::utilities::DBMutexGuard;
 
 use crate::tests::constants::NODE_ID;
 use crate::tests::db_mutex::model::MutexDBDocument;
@@ -35,7 +35,7 @@ async fn alive_list_ok() {
     }
 
     // Execute.
-    let (documents, _mutex) = BDMutexGuard::<MutexDBDocument>::acquire_list(
+    let (documents, _mutex) = DBMutexGuard::<MutexDBDocument>::acquire_list(
         &document_keys,
         &NODE_ID.into(),
         None,

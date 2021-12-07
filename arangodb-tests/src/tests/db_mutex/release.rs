@@ -5,7 +5,7 @@ use tokio::time::sleep;
 use arangodb_types::traits::DBCollection;
 use arangodb_types::traits::DBDocument;
 use arangodb_types::types::DBUuid;
-use arangodb_types::utilities::BDMutexGuard;
+use arangodb_types::utilities::DBMutexGuard;
 
 use crate::tests::constants::NODE_ID;
 use crate::tests::db_mutex::model::MutexDBDocument;
@@ -29,7 +29,7 @@ async fn release_auto() {
 
     {
         // Execute.
-        let (_document, _mutex) = BDMutexGuard::<MutexDBDocument>::acquire_document(
+        let (_document, _mutex) = DBMutexGuard::<MutexDBDocument>::acquire_document(
             &document_key,
             &NODE_ID.into(),
             None,
@@ -73,7 +73,7 @@ async fn release_manually() {
     .expect("Cannot add preconditions to DB");
 
     // Execute.
-    let (_document, mutex) = BDMutexGuard::<MutexDBDocument>::acquire_document(
+    let (_document, mutex) = DBMutexGuard::<MutexDBDocument>::acquire_document(
         &document_key,
         &NODE_ID.into(),
         None,

@@ -24,7 +24,7 @@ use crate::types::{DBMutexField, DBUuid};
 
 mod errors;
 
-pub struct BDMutexGuard<T: 'static + DBSynchronizedDocument<'static>> {
+pub struct DBMutexGuard<T: 'static + DBSynchronizedDocument<'static>> {
     inner: Arc<Mutex<BDMutexGuardInner<T>>>,
 }
 
@@ -36,7 +36,7 @@ struct BDMutexGuardInner<T: 'static + DBSynchronizedDocument<'static>> {
     collection: Arc<T::Collection>,
 }
 
-impl<T: 'static + DBSynchronizedDocument<'static>> BDMutexGuard<T> {
+impl<T: 'static + DBSynchronizedDocument<'static>> DBMutexGuard<T> {
     // CONSTRUCTORS -----------------------------------------------------------
 
     /// Acquires a single document optionally with a timeout.
@@ -46,7 +46,7 @@ impl<T: 'static + DBSynchronizedDocument<'static>> BDMutexGuard<T> {
         fields: Option<&T>,
         timeout: Option<u64>,
         collection: &Arc<T::Collection>,
-    ) -> Result<(T, BDMutexGuard<T>), DBMutexError> {
+    ) -> Result<(T, DBMutexGuard<T>), DBMutexError> {
         let time_out = timeout.map(|v| DBDateTime::now().after_seconds(v));
         let mut checked_doc_exists = false;
 
@@ -96,7 +96,7 @@ impl<T: 'static + DBSynchronizedDocument<'static>> BDMutexGuard<T> {
         node_id: &ArcStr,
         fields: Option<&T>,
         collection: &Arc<T::Collection>,
-    ) -> Result<(Vec<Option<T>>, BDMutexGuard<T>), anyhow::Error> {
+    ) -> Result<(Vec<Option<T>>, DBMutexGuard<T>), anyhow::Error> {
         // Shortcut for empty sets.
         if keys.is_empty() {
             return Ok((
@@ -228,7 +228,7 @@ impl<T: 'static + DBSynchronizedDocument<'static>> BDMutexGuard<T> {
         node_id: &ArcStr,
         fields: Option<&T>,
         collection: &Arc<T::Collection>,
-    ) -> Result<(Vec<T>, BDMutexGuard<T>), anyhow::Error> {
+    ) -> Result<(Vec<T>, DBMutexGuard<T>), anyhow::Error> {
         let collection_name = T::Collection::name();
         let mutex_path = DBDocumentField::Mutex.path();
 
@@ -356,7 +356,7 @@ impl<T: 'static + DBSynchronizedDocument<'static>> BDMutexGuard<T> {
     }
 
     /// Moves the keys from the current mutex into another one.
-    pub async fn pop(&mut self, keys: &[T::Key]) -> Option<BDMutexGuard<T>> {
+    pub async fn pop(&mut self, keys: &[T::Key]) -> Option<DBMutexGuard<T>> {
         let mut lock = self.inner.lock().await;
 
         let new_elements = keys
@@ -631,7 +631,7 @@ impl<T: 'static + DBSynchronizedDocument<'static>> BDMutexGuard<T> {
     }
 }
 
-impl<T: 'static + DBSynchronizedDocument<'static>> Drop for BDMutexGuard<T> {
+impl<T: 'static + DBSynchronizedDocument<'static>> Drop for DBMutexGuard<T> {
     fn drop(&mut self) {
         tokio::spawn(Self::release_action(self.inner.clone()));
     }

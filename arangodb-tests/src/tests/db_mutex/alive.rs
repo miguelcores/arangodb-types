@@ -6,7 +6,7 @@ use arangodb_types::constants::MUTEX_ALIVE_INTERVAL;
 use arangodb_types::traits::DBCollection;
 use arangodb_types::traits::DBDocument;
 use arangodb_types::types::DBUuid;
-use arangodb_types::utilities::BDMutexGuard;
+use arangodb_types::utilities::DBMutexGuard;
 
 use crate::tests::constants::NODE_ID;
 use crate::tests::db_mutex::model::MutexDBDocument;
@@ -29,7 +29,7 @@ async fn alive_ok() {
     .expect("Cannot add preconditions to DB");
 
     // Execute.
-    let (document, _mutex) = BDMutexGuard::<MutexDBDocument>::acquire_document(
+    let (document, _mutex) = DBMutexGuard::<MutexDBDocument>::acquire_document(
         &document_key,
         &NODE_ID.into(),
         None,

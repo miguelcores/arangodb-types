@@ -3,7 +3,7 @@ use arangodb_types::traits::DBDocument;
 use arangodb_types::types::dates::DBDateTime;
 use arangodb_types::types::DBMutex;
 use arangodb_types::types::{DBUuid, NullableOption};
-use arangodb_types::utilities::{BDMutexGuard, DBMutexError};
+use arangodb_types::utilities::{DBMutexError, DBMutexGuard};
 
 use crate::tests::constants::NODE_ID;
 use crate::tests::db_mutex::model::MutexDBDocument;
@@ -26,7 +26,7 @@ async fn acquire_ok() {
     .expect("Cannot add preconditions to DB");
 
     // Execute.
-    let (document, _mutex) = BDMutexGuard::<MutexDBDocument>::acquire_document(
+    let (document, _mutex) = DBMutexGuard::<MutexDBDocument>::acquire_document(
         &document_key,
         &NODE_ID.into(),
         None,
@@ -71,7 +71,7 @@ async fn acquire_expired() {
     .expect("Cannot add preconditions to DB");
 
     // Execute.
-    let (document, _mutex) = BDMutexGuard::<MutexDBDocument>::acquire_document(
+    let (document, _mutex) = DBMutexGuard::<MutexDBDocument>::acquire_document(
         &document_key,
         &NODE_ID.into(),
         None,
@@ -118,7 +118,7 @@ async fn acquire_already_locked() {
     .expect("Cannot add preconditions to DB");
 
     // Execute.
-    let error = BDMutexGuard::<MutexDBDocument>::acquire_document(
+    let error = DBMutexGuard::<MutexDBDocument>::acquire_document(
         &document_key,
         &NODE_ID.into(),
         None,
@@ -162,7 +162,7 @@ async fn acquire_missing() {
     let document_key = DBUuid::new();
 
     // Execute.
-    let error = BDMutexGuard::<MutexDBDocument>::acquire_document(
+    let error = DBMutexGuard::<MutexDBDocument>::acquire_document(
         &document_key,
         &NODE_ID.into(),
         None,
