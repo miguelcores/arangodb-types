@@ -131,7 +131,7 @@ pub trait DBCollection: Send + Sync {
     }
 
     /// Gets a list of documents from the DB by their keys filtering those that cannot be found.
-    async fn get_many_by_key_and_filter<
+    async fn get_many_by_key_flattened<
         I: Iterator<Item = <<Self as DBCollection>::Document as DBDocument>::Key> + std::marker::Send,
     >(
         &self,
