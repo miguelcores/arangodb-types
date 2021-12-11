@@ -4,7 +4,10 @@ use syn::{Field, Fields, Path, Type, Variant};
 
 use crate::data::{FieldAttributes, InnerModelKind};
 use crate::errors::Error;
-use crate::utils::{get_inner_map_types_from_path, get_inner_type_from_path, get_name_from_path};
+use crate::utils::{
+    from_snake_case_to_camel_case, get_inner_map_types_from_path, get_inner_type_from_path,
+    get_name_from_path,
+};
 
 pub struct FieldInfo<'a> {
     pub node: FieldNode<'a>,
@@ -27,7 +30,7 @@ impl<'a> FieldInfo<'a> {
         let db_name = if let Some(db_name) = &attributes.db_name {
             db_name.clone()
         } else {
-            field.ident.as_ref().unwrap().to_string()
+            from_snake_case_to_camel_case(field.ident.as_ref().unwrap().to_string().as_str())
         };
 
         // Create result.

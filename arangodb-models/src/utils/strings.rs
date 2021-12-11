@@ -23,6 +23,31 @@ pub fn from_snake_case_to_pascal_case(input: &str) -> String {
 // ----------------------------------------------------------------------------
 // ----------------------------------------------------------------------------
 
+pub fn from_snake_case_to_camel_case(input: &str) -> String {
+    let mut result = String::with_capacity(input.len());
+
+    let mut uppercase_next = false;
+    for char in input.chars() {
+        if char == '_' {
+            uppercase_next = true;
+            continue;
+        }
+
+        if uppercase_next {
+            result.push_str(&char.to_uppercase().to_string());
+            uppercase_next = false;
+        } else {
+            result.push(char);
+        }
+    }
+
+    result
+}
+
+// ----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+
 pub fn from_camel_or_pascal_case_to_snake_case(input: &str) -> String {
     let mut result = String::with_capacity(input.len());
 
