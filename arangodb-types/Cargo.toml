@@ -21,6 +21,7 @@ reqwest = { version = "0.11.6", features = ["json"] }
 serde = "1.0.130"
 serde_json = "1.0.69"
 uclient = "0.1.1"
+urlencoding = "2.1.0"
 tokio = { version = "1.14.0", features = ["sync", "time"], optional = true }
 
 [dependencies.arangodb-models]

@@ -144,11 +144,12 @@ pub trait DBDocument:
                 )
             })
             .to_string();
+        let key = urlencoding::encode(key.as_str());
 
         loop {
             let response = db_collection
                 .update_document(
-                    key.as_str(),
+                    &key,
                     self.clone(),
                     UpdateOptions::builder()
                         .merge_objects(merge_objects)
@@ -191,11 +192,12 @@ pub trait DBDocument:
                 )
             })
             .to_string();
+        let key = urlencoding::encode(key.as_str());
 
         loop {
             let response = db_collection
                 .update_document(
-                    key.as_str(),
+                    &key,
                     self.clone(),
                     UpdateOptions::builder()
                         .merge_objects(merge_objects)
@@ -303,12 +305,13 @@ pub trait DBDocument:
                 )
             })
             .to_string();
+        let key = urlencoding::encode(key.as_str());
         let rev = rev.map(|v| v.to_string());
 
         loop {
             let response = db_collection
                 .remove_document(
-                    key.as_str(),
+                    &key,
                     RemoveOptions::builder()
                         .return_old(true)
                         .silent(false)
@@ -347,12 +350,13 @@ pub trait DBDocument:
                 )
             })
             .to_string();
+        let key = urlencoding::encode(key.as_str());
         let rev = rev.map(|v| v.to_string());
 
         loop {
             let response = db_collection
                 .remove_document::<()>(
-                    key.as_str(),
+                    &key,
                     RemoveOptions::builder()
                         .return_old(false)
                         .silent(true)
