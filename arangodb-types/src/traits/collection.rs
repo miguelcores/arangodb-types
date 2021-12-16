@@ -5,7 +5,7 @@ use arangors::{AqlOptions, AqlQuery};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use crate::aql::AqlBuilder;
+use crate::aql::{AqlBuilder, AqlInsert};
 use crate::aql::AqlLet;
 use crate::aql::AqlLetKind;
 use crate::aql::AqlLimit;
@@ -268,6 +268,25 @@ pub trait DBCollection: Send + Sync {
                 },
             )
             .await
+    }
+
+    /// Insert many documents.
+    async fn insert_many(
+        &self,
+        documents: &[Self::Document],
+    ) -> Result<(), anyhow::Error> {
+        // FOR i IN <documents>
+        //      INSERT i INTO <collection>
+        let collection = self;
+        let mut aql = AqlBuilder::new_for_in_list(AQL_DOCUMENT_ID, documents);
+
+        aql.insert_step(
+            AqlInsert::new_document(Self::name())
+        );
+
+        collection.send_aql(&aql).await?;
+
+        Ok(())
     }
 
     /// Sends an AQL command returning current collection's documents.
