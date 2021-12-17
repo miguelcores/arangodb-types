@@ -1,6 +1,5 @@
-use serde::Deserialize;
-
 use arangors::Cursor;
+use serde::Deserialize;
 
 pub struct AqlResult<T: for<'de> Deserialize<'de>> {
     pub count: u64,

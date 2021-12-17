@@ -5,7 +5,6 @@ use arangors::{AqlOptions, AqlQuery};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use crate::aql::{AqlBuilder, AqlInsert};
 use crate::aql::AqlLet;
 use crate::aql::AqlLetKind;
 use crate::aql::AqlLimit;
@@ -14,6 +13,7 @@ use crate::aql::AqlReturn;
 use crate::aql::AqlUpdate;
 use crate::aql::AQL_DOCUMENT_ID;
 use crate::aql::AQL_NEW_ID;
+use crate::aql::{AqlBuilder, AqlInsert};
 use crate::constants::MAX_AQL_RETRIES;
 use crate::documents::DBDocumentField;
 use crate::traits::utils::check_client_is_write_conflict;
@@ -271,18 +271,13 @@ pub trait DBCollection: Send + Sync {
     }
 
     /// Insert many documents.
-    async fn insert_many(
-        &self,
-        documents: &[Self::Document],
-    ) -> Result<(), anyhow::Error> {
+    async fn insert_many(&self, documents: &[Self::Document]) -> Result<(), anyhow::Error> {
         // FOR i IN <documents>
         //      INSERT i INTO <collection>
         let collection = self;
         let mut aql = AqlBuilder::new_for_in_list(AQL_DOCUMENT_ID, documents);
 
-        aql.insert_step(
-            AqlInsert::new_document(Self::name())
-        );
+        aql.insert_step(AqlInsert::new_document(Self::name()));
 
         collection.send_aql(&aql).await?;
 

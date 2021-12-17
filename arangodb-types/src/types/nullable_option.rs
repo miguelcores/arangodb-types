@@ -56,8 +56,8 @@ impl<T> NullableOption<T> {
     }
 
     pub fn map<F, R>(self, mapper: F) -> NullableOption<R>
-    where
-        F: FnOnce(T) -> R,
+        where
+            F: FnOnce(T) -> R,
     {
         match self {
             NullableOption::Missing => NullableOption::Missing,
@@ -67,8 +67,8 @@ impl<T> NullableOption<T> {
     }
 
     pub fn map_ref<F, R>(&self, mapper: F) -> NullableOption<R>
-    where
-        F: FnOnce(&T) -> R,
+        where
+            F: FnOnce(&T) -> R,
     {
         match self {
             NullableOption::Missing => NullableOption::Missing,
@@ -78,8 +78,8 @@ impl<T> NullableOption<T> {
     }
 
     pub fn map_mut_ref<F, R>(&mut self, mapper: F) -> NullableOption<R>
-    where
-        F: FnOnce(&mut T) -> R,
+        where
+            F: FnOnce(&mut T) -> R,
     {
         match self {
             NullableOption::Missing => NullableOption::Missing,
@@ -143,12 +143,12 @@ impl<T> From<Option<T>> for NullableOption<T> {
 }
 
 impl<'de, T> Deserialize<'de> for NullableOption<T>
-where
-    T: Deserialize<'de>,
+    where
+        T: Deserialize<'de>,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
+        where
+            D: Deserializer<'de>,
     {
         Option::deserialize(deserializer).map(Into::into)
     }

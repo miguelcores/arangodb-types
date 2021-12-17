@@ -2,7 +2,7 @@ use std::io::Write;
 
 use serde::{Deserialize, Serialize};
 
-use crate::aql::{get_aql_inline_variable, AqlBuilder, AqlLet, AqlLetKind};
+use crate::aql::{AqlBuilder, AqlLet, AqlLetKind, get_aql_inline_variable};
 use crate::traits::{
     APIDocument, AQLMapping, DBCollection, DBDocument, DBNormalize, DBNormalizeResult,
 };
@@ -72,9 +72,9 @@ impl<T: DBDocument> DBReference<T> {
     }
 
     pub fn map_to_api<F, R>(self, mapper: F) -> APIReference<R>
-    where
-        F: FnOnce(Box<T>) -> Box<R>,
-        R: APIDocument<Key = T::Key>,
+        where
+            F: FnOnce(Box<T>) -> Box<R>,
+            R: APIDocument<Key=T::Key>,
     {
         match self {
             DBReference::Document(v) => APIReference::Document(mapper(v)),
@@ -131,7 +131,7 @@ impl<T: DBDocument> AQLMapping for DBReference<T> {
                         collection_name,
                         serde_json::to_string(&document_key).unwrap()
                     )
-                    .into(),
+                        .into(),
                 ),
             });
 

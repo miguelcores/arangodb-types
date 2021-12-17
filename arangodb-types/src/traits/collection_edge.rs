@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 
+use crate::aql::AQL_DOCUMENT_ID;
 use crate::aql::AqlBuilder;
 use crate::aql::AqlReturn;
-use crate::aql::AQL_DOCUMENT_ID;
 use crate::documents::DBDocumentField;
 use crate::traits::DBCollection;
 use crate::traits::DBDocument;
@@ -61,7 +61,7 @@ pub trait DBEdgeCollection: DBCollection {
                 DBDocumentField::To.path(),
                 serde_json::to_string(to).unwrap(),
             )
-            .into(),
+                .into(),
         );
 
         if let Some(fields) = return_fields {

@@ -23,9 +23,9 @@ async fn release_auto() {
         db_key: Some(document_key.clone()),
         ..Default::default()
     }
-    .insert(true, collection.as_ref())
-    .await
-    .expect("Cannot add preconditions to DB");
+        .insert(true, collection.as_ref())
+        .await
+        .expect("Cannot add preconditions to DB");
 
     {
         // Execute.
@@ -36,8 +36,8 @@ async fn release_auto() {
             None,
             &collection,
         )
-        .await
-        .expect("Locking must succeed");
+            .await
+            .expect("Locking must succeed");
     }
 
     // Wait until the release is completed.
@@ -68,9 +68,9 @@ async fn release_manually() {
         db_key: Some(document_key.clone()),
         ..Default::default()
     }
-    .insert(true, collection.as_ref())
-    .await
-    .expect("Cannot add preconditions to DB");
+        .insert(true, collection.as_ref())
+        .await
+        .expect("Cannot add preconditions to DB");
 
     // Execute.
     let (_document, mutex) = DBMutexGuard::<MutexDBDocument>::acquire_document(
@@ -80,8 +80,8 @@ async fn release_manually() {
         None,
         &collection,
     )
-    .await
-    .expect("Locking must succeed");
+        .await
+        .expect("Locking must succeed");
 
     mutex.release();
 

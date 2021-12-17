@@ -65,8 +65,8 @@ impl<T: APIDocument> APIReference<T> {
     }
 
     pub fn and<F>(&mut self, mapper: F)
-    where
-        F: FnOnce(&mut Box<T>),
+        where
+            F: FnOnce(&mut Box<T>),
     {
         match self {
             APIReference::Document(v) => {
@@ -77,9 +77,9 @@ impl<T: APIDocument> APIReference<T> {
     }
 
     pub fn map_to_db<F, R>(self, mapper: F) -> DBReference<R>
-    where
-        F: FnOnce(Box<T>) -> Box<R>,
-        R: DBDocument<Key = T::Key>,
+        where
+            F: FnOnce(Box<T>) -> Box<R>,
+            R: DBDocument<Key=T::Key>,
     {
         match self {
             APIReference::Document(v) => DBReference::Document(mapper(v)),
