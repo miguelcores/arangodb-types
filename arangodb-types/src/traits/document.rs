@@ -66,18 +66,32 @@ pub trait DBDocument:
         let db_collection = collection.db_collection().await?;
 
         loop {
-            let response = db_collection
-                .create_document(
-                    self.clone(),
-                    InsertOptions::builder()
-                        .return_new(true)
-                        .return_old(false)
-                        .keep_null(false)
-                        .overwrite(overwrite)
-                        .overwrite_mode(OverwriteMode::Replace)
-                        .build(),
-                )
-                .await;
+            let response = if overwrite {
+                db_collection
+                    .create_document(
+                        self.clone(),
+                        InsertOptions::builder()
+                            .return_new(false)
+                            .return_old(false)
+                            .keep_null(false)
+                            .overwrite(true)
+                            .overwrite_mode(OverwriteMode::Replace)
+                            .build(),
+                    )
+                    .await
+            } else {
+                db_collection
+                    .create_document(
+                        self.clone(),
+                        InsertOptions::builder()
+                            .return_new(false)
+                            .return_old(false)
+                            .keep_null(false)
+                            .overwrite(false)
+                            .build(),
+                    )
+                    .await
+            };
 
             match response {
                 Ok(v) => match v {
@@ -100,18 +114,32 @@ pub trait DBDocument:
         let db_collection = collection.db_collection().await?;
 
         loop {
-            let response = db_collection
-                .create_document(
-                    self.clone(),
-                    InsertOptions::builder()
-                        .return_new(false)
-                        .return_old(false)
-                        .keep_null(false)
-                        .overwrite(overwrite)
-                        .overwrite_mode(OverwriteMode::Replace)
-                        .build(),
-                )
-                .await;
+            let response = if overwrite {
+                db_collection
+                    .create_document(
+                        self.clone(),
+                        InsertOptions::builder()
+                            .return_new(false)
+                            .return_old(false)
+                            .keep_null(false)
+                            .overwrite(true)
+                            .overwrite_mode(OverwriteMode::Replace)
+                            .build(),
+                    )
+                    .await
+            } else {
+                db_collection
+                    .create_document(
+                        self.clone(),
+                        InsertOptions::builder()
+                            .return_new(false)
+                            .return_old(false)
+                            .keep_null(false)
+                            .overwrite(false)
+                            .build(),
+                    )
+                    .await
+            };
 
             match response {
                 Ok(_) => return Ok(self.db_key().clone().unwrap()),
