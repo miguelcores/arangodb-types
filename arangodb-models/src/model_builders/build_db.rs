@@ -363,6 +363,86 @@ fn build_db_document_impl(
         }
     };
 
+    // Evaluate is_all_null method.
+    let is_all_null_method_tokens = if all_fields_are_optional_or_db_properties {
+        let fields = fields_in_db.iter().map(|field| {
+            let name = field.name();
+            match field.field_type_kind {
+                Some(FieldTypeKind::NullableOption) => {
+                    quote! {
+                        if !self.#name.is_null() {
+                            return false;
+                        }
+                    }
+                }
+                Some(FieldTypeKind::Option) => {
+                    quote! {
+                        if self.#name.is_some() {
+                            return false;
+                        }
+                    }
+                }
+                None => {
+                    unreachable!("Cannot generate is_all_null for plain fields")
+                }
+            }
+        });
+
+        quote! {
+            fn is_all_null(&self) -> bool {
+                #(#fields)*
+
+                true
+            }
+        }
+    } else {
+        quote! {
+            fn is_all_null(&self) -> bool {
+                false
+            }
+        }
+    };
+
+    // Evaluate is_all_null_or_missing method.
+    let is_all_null_or_missing_method_tokens = if all_fields_are_optional_or_db_properties {
+        let fields = fields_in_db.iter().map(|field| {
+            let name = field.name();
+            match field.field_type_kind {
+                Some(FieldTypeKind::NullableOption) => {
+                    quote! {
+                        if self.#name.is_value() {
+                            return false;
+                        }
+                    }
+                }
+                Some(FieldTypeKind::Option) => {
+                    quote! {
+                        if self.#name.is_some() {
+                            return false;
+                        }
+                    }
+                }
+                None => {
+                    unreachable!("Cannot generate is_all_null_or_missing for plain fields")
+                }
+            }
+        });
+
+        quote! {
+            fn is_all_null_or_missing(&self) -> bool {
+                #(#fields)*
+
+                true
+            }
+        }
+    } else {
+        quote! {
+            fn is_all_null_or_missing(&self) -> bool {
+                false
+            }
+        }
+    };
+
     // Evaluate normalize method.
     let normalize_method_tokens = if let Some(method_name) = &info.replace_normalize_fields {
         method_name.to_token_stream()
@@ -537,7 +617,7 @@ fn build_db_document_impl(
 
                 #(#normalize_field_list;)*
 
-                if self.is_all_missing() {
+                if self.is_all_null() {
                     DBNormalizeResult::Removed
                 } else if modified {
                     DBNormalizeResult::Modified
@@ -687,6 +767,8 @@ fn build_db_document_impl(
             }
 
             #is_all_missing_method_tokens
+            #is_all_null_method_tokens
+            #is_all_null_or_missing_method_tokens
 
             // SETTERS --------------------------------------------------------
 

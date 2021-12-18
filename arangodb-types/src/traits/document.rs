@@ -40,6 +40,12 @@ pub trait DBDocument:
     /// Whether all the fields are missing or not.
     fn is_all_missing(&self) -> bool;
 
+    /// Whether all the fields are null or not.
+    fn is_all_null(&self) -> bool;
+
+    /// Whether all the fields are null or missing or not.
+    fn is_all_null_or_missing(&self) -> bool;
+
     // SETTERS ----------------------------------------------------------------
 
     fn set_db_key(&mut self, value: Option<Self::Key>);
