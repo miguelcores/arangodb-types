@@ -71,7 +71,7 @@ pub trait DBDocument:
                     .create_document(
                         self.clone(),
                         InsertOptions::builder()
-                            .return_new(false)
+                            .return_new(true)
                             .return_old(false)
                             .keep_null(false)
                             .overwrite(true)
@@ -84,7 +84,7 @@ pub trait DBDocument:
                     .create_document(
                         self.clone(),
                         InsertOptions::builder()
-                            .return_new(false)
+                            .return_new(true)
                             .return_old(false)
                             .keep_null(false)
                             .overwrite(false)
