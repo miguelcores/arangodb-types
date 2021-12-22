@@ -934,12 +934,17 @@ fn build_sync_impl(
 
     // Build result.
     imports.insert("::arangodb_types::traits::DBSynchronizedDocument".to_string());
+    imports.insert("::arangodb_types::types::NullableOption".to_string());
 
     Ok(quote! {
         impl<'a> DBSynchronizedDocument<'a> for #document_name {
             #[allow(unused_variables)]
             fn collection_key() -> &'a Self::Key {
                 #collection_key_value
+            }
+
+            fn set_mutex(&mut self, mutex: NullableOption<DBMutex>) {
+                self.db_mutex = mutex;
             }
         }
     })

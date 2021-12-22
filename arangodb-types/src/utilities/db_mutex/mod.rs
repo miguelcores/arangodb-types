@@ -11,16 +11,16 @@ use tokio::time::sleep;
 pub use errors::*;
 
 use crate::aql::{
-    AqlBuilder, AqlLet, AqlLetKind, AqlLimit, AqlReturn, AqlSort, AqlUpdate, AQL_DOCUMENT_ID,
-    AQL_NEW_ID,
+    AQL_DOCUMENT_ID, AQL_NEW_ID, AqlBuilder, AqlLet, AqlLetKind, AqlLimit, AqlReturn, AqlSort,
+    AqlUpdate,
 };
 use crate::constants::{
     MUTEX_ACQUIRE_MAX_INTERVAL, MUTEX_ACQUIRE_MIN_INTERVAL, MUTEX_ALIVE_INTERVAL, MUTEX_EXPIRATION,
 };
 use crate::documents::DBDocumentField;
 use crate::traits::{DBCollection, DBSynchronizedDocument};
+use crate::types::{DBMutex, DBMutexField, DBUuid, NullableOption};
 use crate::types::dates::DBDateTime;
-use crate::types::{DBMutexField, DBUuid};
 
 mod errors;
 
@@ -120,6 +120,63 @@ impl<T: 'static + DBSynchronizedDocument<'static>> DBMutexGuard<T> {
         }
     }
 
+    /// Acquires a single document optionally with a timeout.
+    pub async fn acquire_or_create_document<F: FnOnce() -> T>(
+        key: &T::Key,
+        node_id: &ArcStr,
+        fields: Option<&T>,
+        timeout: Option<u64>,
+        collection: &Arc<T::Collection>,
+        default: F,
+    ) -> Result<(T, DBMutexGuard<T>), DBMutexError> {
+        match Self::acquire_document(key, node_id, fields, timeout, collection).await {
+            Ok(v) => Ok(v),
+            Err(e) => {
+                match e {
+                    DBMutexError::NotFound => {
+                        // Persist document with mutex.
+                        let mut document = default();
+                        let now = DBDateTime::now();
+                        let expiration = now.after_seconds(MUTEX_EXPIRATION);
+                        let change_flag = DBUuid::new();
+
+                        document.set_mutex(NullableOption::Value(DBMutex {
+                            node: node_id.clone(),
+                            expiration,
+                            change_flag: change_flag.clone(),
+                        }));
+
+                        let final_document = document.insert(false, collection).await?;
+
+                        let guard = Self {
+                            inner: Arc::new(Mutex::new(BDMutexGuardInner {
+                                node_id: node_id.clone(),
+                                elements: {
+                                    let mut set = HashSet::new();
+                                    set.insert(final_document.db_key().clone().unwrap());
+                                    set
+                                },
+                                change_flag,
+                                alive_job: None,
+                                collection: collection.clone(),
+                            })),
+                        };
+
+                        // Launch alive action.
+                        {
+                            let mut lock = guard.inner.lock().await;
+                            lock.alive_job = Some(tokio::spawn(Self::alive_action(guard.inner.clone())));
+                        }
+
+                        Ok((final_document, guard))
+                    }
+                    DBMutexError::Timeout => Err(DBMutexError::Timeout),
+                    DBMutexError::Other(e) => Err(DBMutexError::Other(e))
+                }
+            }
+        }
+    }
+
     /// Acquires a list of documents, locking them in the process. If any of the documents couldn't
     /// be locked, a None is returned.
     pub async fn acquire_list(
@@ -173,7 +230,7 @@ impl<T: 'static + DBSynchronizedDocument<'static>> DBMutexGuard<T> {
                 DBMutexField::Expiration(None).path(),
                 serde_json::to_string(&now).unwrap()
             )
-            .into(),
+                .into(),
         );
         aql.update_step(
             AqlUpdate::new(
@@ -189,9 +246,9 @@ impl<T: 'static + DBSynchronizedDocument<'static>> DBMutexGuard<T> {
                     DBMutexField::ChangeFlag(None).path(),
                     serde_json::to_string(&change_flag).unwrap()
                 )
-                .into(),
+                    .into(),
             )
-            .apply_ignore_errors(true),
+                .apply_ignore_errors(true),
         );
 
         if let Some(fields) = fields {
@@ -288,7 +345,7 @@ impl<T: 'static + DBSynchronizedDocument<'static>> DBMutexGuard<T> {
                 DBMutexField::Expiration(None).path(),
                 serde_json::to_string(&now).unwrap()
             )
-            .into(),
+                .into(),
         );
 
         if let Some(sort) = sort {
@@ -312,9 +369,9 @@ impl<T: 'static + DBSynchronizedDocument<'static>> DBMutexGuard<T> {
                     DBMutexField::ChangeFlag(None).path(),
                     serde_json::to_string(&change_flag).unwrap()
                 )
-                .into(),
+                    .into(),
             )
-            .apply_ignore_errors(true),
+                .apply_ignore_errors(true),
         );
         aql.filter_step(format!("{} != null", AQL_NEW_ID).into());
 
@@ -499,7 +556,7 @@ impl<T: 'static + DBSynchronizedDocument<'static>> DBMutexGuard<T> {
                     DBMutexField::ChangeFlag(None).path(),
                     serde_json::to_string(&lock.change_flag).unwrap(),
                 )
-                .into(),
+                    .into(),
             );
             aql.update_step(
                 AqlUpdate::new_document(
@@ -510,9 +567,9 @@ impl<T: 'static + DBSynchronizedDocument<'static>> DBMutexGuard<T> {
                         DBMutexField::Expiration(None).path(),
                         serde_json::to_string(&expiration).unwrap(),
                     )
-                    .into(),
+                        .into(),
                 )
-                .apply_ignore_errors(true),
+                    .apply_ignore_errors(true),
             );
             aql.filter_step(format!("{} != null", AQL_NEW_ID).into());
             aql.return_step(AqlReturn::new_document());
@@ -589,14 +646,14 @@ impl<T: 'static + DBSynchronizedDocument<'static>> DBMutexGuard<T> {
                 DBMutexField::ChangeFlag(None).path(),
                 serde_json::to_string(&lock.change_flag).unwrap(),
             )
-            .into(),
+                .into(),
         );
         aql.update_step(
             AqlUpdate::new_document(
                 collection_name,
                 format!("{{ {}: null }}", mutex_path).into(),
             )
-            .apply_ignore_errors(true),
+                .apply_ignore_errors(true),
         );
         aql.filter_step(format!("{} != null", AQL_NEW_ID).into());
         aql.return_step(AqlReturn::new_document());
@@ -642,7 +699,7 @@ impl<T: 'static + DBSynchronizedDocument<'static>> DBMutexGuard<T> {
                 DBMutexField::Node(None).path(),
                 serde_json::to_string(node_id).unwrap(),
             )
-            .into(),
+                .into(),
         );
         aql.update_step(
             AqlUpdate::new(
@@ -650,7 +707,7 @@ impl<T: 'static + DBSynchronizedDocument<'static>> DBMutexGuard<T> {
                 collection_name,
                 format!("{{ {}: null }}", mutex_path).into(),
             )
-            .apply_ignore_errors(true),
+                .apply_ignore_errors(true),
         );
 
         if let Err(e) = collection.send_generic_aql::<DBUuid>(&aql).await {
