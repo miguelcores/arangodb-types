@@ -39,6 +39,35 @@ struct BDMutexGuardInner<T: 'static + DBSynchronizedDocument<'static>> {
 impl<T: 'static + DBSynchronizedDocument<'static>> DBMutexGuard<T> {
     // CONSTRUCTORS -----------------------------------------------------------
 
+    pub async unsafe fn new(
+        key: &T::Key,
+        node_id: &ArcStr,
+        change_flag: DBUuid,
+        collection: &Arc<T::Collection>,
+    ) -> DBMutexGuard<T> {
+        let guard = Self {
+            inner: Arc::new(Mutex::new(BDMutexGuardInner {
+                node_id: node_id.clone(),
+                elements: {
+                    let mut set = HashSet::new();
+                    set.insert(key.clone());
+                    set
+                },
+                change_flag,
+                alive_job: None,
+                collection: collection.clone(),
+            })),
+        };
+
+        // Launch alive action.
+        {
+            let mut lock = guard.inner.lock().await;
+            lock.alive_job = Some(tokio::spawn(Self::alive_action(guard.inner.clone())));
+        }
+
+        guard
+    }
+
     /// Acquires a single document optionally with a timeout.
     pub async fn acquire_document(
         key: &T::Key,
