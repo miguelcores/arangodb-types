@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::aql::{AQL_DOCUMENT_ID, AqlBuilder, AqlLimit, AqlReturn, AqlSort};
+use crate::aql::{AqlBuilder, AqlLimit, AqlReturn, AqlSort, AQL_DOCUMENT_ID};
 use crate::traits::{PaginatedDocument, PaginatedDocumentField};
 use crate::types::filters::{APIFilter, APIFilteringStatsConfig};
 
@@ -145,7 +145,7 @@ impl<F: PaginatedDocumentField> PaginatedRequest<F> {
                             AQL_DOCUMENT_ID,
                             sorting.field.path_to_value()
                         )
-                            .into(),
+                        .into(),
                         is_descending: sorting.descending,
                     })
                     .collect(),

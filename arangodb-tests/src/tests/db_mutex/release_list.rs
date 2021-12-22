@@ -26,9 +26,9 @@ async fn release_list_auto() {
             db_key: Some(document_key.clone()),
             ..Default::default()
         }
-            .insert(true, collection.as_ref())
-            .await
-            .expect("Cannot add preconditions to DB");
+        .insert(true, collection.as_ref())
+        .await
+        .expect("Cannot add preconditions to DB");
 
         document_keys.push(document_key);
     }
@@ -41,8 +41,8 @@ async fn release_list_auto() {
             None,
             &collection,
         )
-            .await
-            .expect("Locking must succeed");
+        .await
+        .expect("Locking must succeed");
 
         assert_eq!(documents.len(), document_keys.len(), "Incorrect length");
     }
@@ -80,9 +80,9 @@ async fn release_list_manually() {
             db_key: Some(document_key.clone()),
             ..Default::default()
         }
-            .insert(true, collection.as_ref())
-            .await
-            .expect("Cannot add preconditions to DB");
+        .insert(true, collection.as_ref())
+        .await
+        .expect("Cannot add preconditions to DB");
 
         document_keys.push(document_key);
     }
@@ -94,8 +94,8 @@ async fn release_list_manually() {
         None,
         &collection,
     )
-        .await
-        .expect("Locking must succeed");
+    .await
+    .expect("Locking must succeed");
 
     assert_eq!(documents.len(), document_keys.len(), "Incorrect length");
 

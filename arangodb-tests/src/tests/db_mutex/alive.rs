@@ -24,9 +24,9 @@ async fn alive_ok() {
         db_key: Some(document_key.clone()),
         ..Default::default()
     }
-        .insert(true, collection.as_ref())
-        .await
-        .expect("Cannot add preconditions to DB");
+    .insert(true, collection.as_ref())
+    .await
+    .expect("Cannot add preconditions to DB");
 
     // Execute.
     let (document, _mutex) = DBMutexGuard::<MutexDBDocument>::acquire_document(
@@ -36,8 +36,8 @@ async fn alive_ok() {
         None,
         &collection,
     )
-        .await
-        .expect("Locking must succeed");
+    .await
+    .expect("Locking must succeed");
 
     // Check DB.
     assert!(document.db_mutex.is_value(), "Incorrect mutex");

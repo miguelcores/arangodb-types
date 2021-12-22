@@ -39,6 +39,8 @@ struct BDMutexGuardInner<T: 'static + DBSynchronizedDocument<'static>> {
 impl<T: 'static + DBSynchronizedDocument<'static>> DBMutexGuard<T> {
     // CONSTRUCTORS -----------------------------------------------------------
 
+    /// # Safety
+    /// This method won't panic but can cause incorrect behaviour if not used wisely.
     pub async unsafe fn new(
         key: &T::Key,
         node_id: &ArcStr,

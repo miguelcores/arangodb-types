@@ -1,8 +1,8 @@
 use arangodb_types::traits::DBCollection;
 use arangodb_types::traits::DBDocument;
-use arangodb_types::types::{DBUuid, NullableOption};
 use arangodb_types::types::dates::DBDateTime;
 use arangodb_types::types::DBMutex;
+use arangodb_types::types::{DBUuid, NullableOption};
 use arangodb_types::utilities::{DBMutexError, DBMutexGuard};
 
 use crate::tests::constants::NODE_ID;
@@ -21,9 +21,9 @@ async fn acquire_ok() {
         db_key: Some(document_key.clone()),
         ..Default::default()
     }
-        .insert(true, collection.as_ref())
-        .await
-        .expect("Cannot add preconditions to DB");
+    .insert(true, collection.as_ref())
+    .await
+    .expect("Cannot add preconditions to DB");
 
     // Execute.
     let (document, _mutex) = DBMutexGuard::<MutexDBDocument>::acquire_document(
@@ -33,8 +33,8 @@ async fn acquire_ok() {
         None,
         &collection,
     )
-        .await
-        .expect("Locking must succeed");
+    .await
+    .expect("Locking must succeed");
 
     // Check DB.
     assert_eq!(document.db_key, Some(document_key), "Incorrect db_key");
@@ -66,9 +66,9 @@ async fn acquire_expired() {
         }),
         ..Default::default()
     }
-        .insert(true, collection.as_ref())
-        .await
-        .expect("Cannot add preconditions to DB");
+    .insert(true, collection.as_ref())
+    .await
+    .expect("Cannot add preconditions to DB");
 
     // Execute.
     let (document, _mutex) = DBMutexGuard::<MutexDBDocument>::acquire_document(
@@ -78,8 +78,8 @@ async fn acquire_expired() {
         None,
         &collection,
     )
-        .await
-        .expect("Locking must succeed");
+    .await
+    .expect("Locking must succeed");
 
     // Check DB.
     assert_eq!(document.db_key, Some(document_key), "Incorrect db_key");
@@ -113,9 +113,9 @@ async fn acquire_already_locked() {
         }),
         ..Default::default()
     }
-        .insert(true, collection.as_ref())
-        .await
-        .expect("Cannot add preconditions to DB");
+    .insert(true, collection.as_ref())
+    .await
+    .expect("Cannot add preconditions to DB");
 
     // Execute.
     let error = DBMutexGuard::<MutexDBDocument>::acquire_document(
@@ -125,7 +125,7 @@ async fn acquire_already_locked() {
         Some(1),
         &collection,
     )
-        .await;
+    .await;
 
     match error {
         Ok(_) => panic!("Locking must fail"),
@@ -169,7 +169,7 @@ async fn acquire_missing() {
         None,
         &collection,
     )
-        .await;
+    .await;
 
     match error {
         Ok(_) => panic!("Locking must fail"),

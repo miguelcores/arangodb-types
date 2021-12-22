@@ -5,15 +5,15 @@ use serde::{Deserialize, Serialize};
 
 pub trait APIDocument {
     type Key: Debug
-    + ToString
-    + Eq
-    + PartialEq
-    + Clone
-    + Hash
-    + Send
-    + Sync
-    + Serialize
-    + for<'de> Deserialize<'de>;
+        + ToString
+        + Eq
+        + PartialEq
+        + Clone
+        + Hash
+        + Send
+        + Sync
+        + Serialize
+        + for<'de> Deserialize<'de>;
 
     // GETTERS ----------------------------------------------------------------
 

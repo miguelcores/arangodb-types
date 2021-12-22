@@ -1,9 +1,9 @@
 use std::fmt;
 use std::ops::Deref;
 
-use chrono::{Timelike, TimeZone, Utc};
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use chrono::{TimeZone, Timelike, Utc};
 use serde::de::Visitor;
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::traits::{DBNormalize, DBNormalizeResult};
 use crate::types::dates::DBDateTime;
@@ -24,8 +24,8 @@ impl DBExpiration {
 
 impl Serialize for DBExpiration {
     fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
-        where
-            S: Serializer,
+    where
+        S: Serializer,
     {
         serializer.serialize_i64(self.0.timestamp())
     }
@@ -33,8 +33,8 @@ impl Serialize for DBExpiration {
 
 impl<'de> Deserialize<'de> for DBExpiration {
     fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
-        where
-            D: Deserializer<'de>,
+    where
+        D: Deserializer<'de>,
     {
         struct DateTimeVisitor;
         impl<'de> Visitor<'de> for DateTimeVisitor {
@@ -45,15 +45,15 @@ impl<'de> Deserialize<'de> for DBExpiration {
             }
 
             fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
-                where
-                    E: de::Error,
+            where
+                E: de::Error,
             {
                 Ok(DBDateTime::new(Utc::timestamp(&Utc, value, 0)).into())
             }
 
             fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
-                where
-                    E: de::Error,
+            where
+                E: de::Error,
             {
                 Ok(DBDateTime::new(Utc::timestamp(&Utc, value as i64, 0)).into())
             }
