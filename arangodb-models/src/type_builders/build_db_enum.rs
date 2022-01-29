@@ -1,9 +1,8 @@
-use std::collections::HashSet;
-
 use proc_macro2::TokenStream;
 use quote::format_ident;
 use quote::quote;
 use quote::ToTokens;
+use std::collections::HashSet;
 use syn::spanned::Spanned;
 
 use crate::data::{
@@ -255,7 +254,9 @@ fn build_impl(
             let name = field.name();
 
             if field.attributes.skip_normalize {
-                return None;
+                return Some(quote! {
+                    #document_name::#name(_) => {}
+                });
             }
 
             if field.inner_type.is_none() {
