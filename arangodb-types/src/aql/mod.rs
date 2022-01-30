@@ -843,7 +843,9 @@ impl<'a> AqlUpsert<'a> {
 pub struct AqlCollect<'a> {
     pub group_variable: Cow<'a, str>,
     pub expression: Option<Cow<'a, str>>,
+    pub aggregate: Option<Cow<'a, str>>,
     pub keep: &'a [&'a str],
+    pub count: bool,
     pub hash_method: bool,
 }
 
@@ -854,7 +856,9 @@ impl<'a> AqlCollect<'a> {
         AqlCollect {
             group_variable,
             expression: None,
+            aggregate: None,
             keep: &[],
+            count: false,
             hash_method: false,
         }
     }
@@ -867,7 +871,35 @@ impl<'a> AqlCollect<'a> {
         AqlCollect {
             group_variable,
             expression: Some(expression),
+            aggregate: None,
             keep,
+            count: false,
+            hash_method: false,
+        }
+    }
+
+    pub fn new_collect_and_count(
+        expression: Cow<'a, str>,
+        group_variable: Cow<'a, str>,
+        keep: &'a [&'a str],
+    ) -> Self {
+        AqlCollect {
+            group_variable,
+            expression: Some(expression),
+            aggregate: None,
+            keep,
+            count: true,
+            hash_method: false,
+        }
+    }
+
+    pub fn new_collect_and_aggregate(expression: Cow<'a, str>, aggregate: Cow<'a, str>) -> Self {
+        AqlCollect {
+            group_variable: Cow::Borrowed(""),
+            expression: Some(expression),
+            aggregate: Some(aggregate),
+            keep: &[],
+            count: false,
             hash_method: false,
         }
     }
@@ -883,18 +915,28 @@ impl<'a> AqlCollect<'a> {
         if let Some(expression) = &self.expression {
             query.push_str(" COLLECT ");
             query.push_str(expression);
-            query.push_str(" INTO ");
-            query.push_str(&self.group_variable);
 
-            if !self.keep.is_empty() {
-                query.push_str(" KEEP ");
+            if self.count {
+                query.push_str(" WITH COUNT ");
+            }
 
-                let mut iter = self.keep.iter();
-                query.push_str(iter.next().unwrap());
+            if let Some(aggregate) = &self.aggregate {
+                query.push_str(" AGGREGATE ");
+                query.push_str(aggregate);
+            } else {
+                query.push_str(" INTO ");
+                query.push_str(&self.group_variable);
 
-                for var in iter {
-                    query.push(',');
-                    query.push_str(var);
+                if !self.keep.is_empty() {
+                    query.push_str(" KEEP ");
+
+                    let mut iter = self.keep.iter();
+                    query.push_str(iter.next().unwrap());
+
+                    for var in iter {
+                        query.push(',');
+                        query.push_str(var);
+                    }
                 }
             }
         } else {

@@ -876,7 +876,7 @@ pub fn build_api_struct_sensible_info_impl(
                     }
                     None => {
                         if is_sensible {
-                            panic!("Cannot mark field '{}' as sensible info if it is not an Option or NullableOption", name.to_string());
+                            panic!("Cannot mark field '{}' as sensible info if it is not an Option or NullableOption", name);
                         } else {
                             base.map(|base| quote! {
                             {
@@ -952,7 +952,7 @@ pub fn build_api_struct_sensible_info_impl(
                     }
                     None => {
                         if is_sensible {
-                            panic!("Cannot mark field '{}' as sensible info if it is not an Option or NullableOption", name.to_string());
+                            panic!("Cannot mark field '{}' as sensible info if it is not an Option or NullableOption", name);
                         } else {
                             Some(quote! {
                                 {
