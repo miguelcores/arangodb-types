@@ -19,7 +19,31 @@ const ALPHABET: [char; 64] = [
     't', 'u', 'v', 'w', 'x', 'y', 'z',
 ];
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+// Same as ALPHABET but without - and _ characters.
+const SIMPLE_ALPHABET: [char; 62] = [
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I',
+    'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b',
+    'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u',
+    'v', 'w', 'x', 'y', 'z',
+];
+
+// Same as SIMPLE_ALPHABET but without I and O letters.
+const BASE60_ALPHABET: [char; 60] = [
+    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J',
+    'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd',
+    'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w',
+    'x', 'y', 'z',
+];
+
+// Same as BASE60_ALPHABET but without the 0 number and l letter.
+const BASE58_ALPHABET: [char; 58] = [
+    '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K',
+    'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e',
+    'f', 'g', 'h', 'i', 'j', 'k', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y',
+    'z',
+];
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 pub struct DBUuid(ArcStr);
 
 impl DBUuid {
@@ -31,6 +55,30 @@ impl DBUuid {
 
     pub fn new_with_length(length: usize) -> DBUuid {
         DBUuid(nanoid!(length, &ALPHABET).into())
+    }
+
+    pub fn new_simple() -> DBUuid {
+        Self::new_simple_with_length(23)
+    }
+
+    pub fn new_simple_with_length(length: usize) -> DBUuid {
+        DBUuid(nanoid!(length, &SIMPLE_ALPHABET).into())
+    }
+
+    pub fn new_base60() -> DBUuid {
+        Self::new_base60_with_length(23)
+    }
+
+    pub fn new_base60_with_length(length: usize) -> DBUuid {
+        DBUuid(nanoid!(length, &BASE60_ALPHABET).into())
+    }
+
+    pub fn new_base58() -> DBUuid {
+        Self::new_base58_with_length(23)
+    }
+
+    pub fn new_base58_with_length(length: usize) -> DBUuid {
+        DBUuid(nanoid!(length, &BASE58_ALPHABET).into())
     }
 
     // METHODS ----------------------------------------------------------------
