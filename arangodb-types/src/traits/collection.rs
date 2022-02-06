@@ -5,22 +5,21 @@ use arangors::{AqlOptions, AqlQuery};
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
+use crate::aql::{AqlBuilder, AqlInsert};
+use crate::aql::AQL_DOCUMENT_ID;
+use crate::aql::AQL_NEW_ID;
 use crate::aql::AqlLet;
 use crate::aql::AqlLetKind;
 use crate::aql::AqlLimit;
 use crate::aql::AqlResult;
 use crate::aql::AqlReturn;
 use crate::aql::AqlUpdate;
-use crate::aql::AQL_DOCUMENT_ID;
-use crate::aql::AQL_NEW_ID;
-use crate::aql::{AqlBuilder, AqlInsert};
-use crate::constants::MAX_AQL_RETRIES;
 use crate::documents::DBDocumentField;
-use crate::traits::utils::check_client_is_write_conflict;
 use crate::traits::DBDocument;
+use crate::traits::utils::check_client_is_write_conflict;
 use crate::types::Collection;
-use crate::types::DBInfo;
 use crate::types::Database;
+use crate::types::DBInfo;
 
 #[async_trait]
 pub trait DBCollection: Send + Sync {
@@ -386,21 +385,13 @@ pub trait DBCollection: Send + Sync {
     where
         F: FnMut(AqlResult<R>, &mut AqlBuilder<'a>) -> bool + Send,
     {
-        let mut aql_retry = 0;
-        while aql_retry < MAX_AQL_RETRIES {
+        loop {
             let results = self.send_generic_aql(aql).await?;
 
             if checker(results, aql) {
                 return Ok(());
             }
-
-            aql_retry += 1;
         }
-
-        return Err(anyhow::anyhow!(
-            "Maximum AQL retries reached for '{:?}'",
-            aql
-        ));
     }
 
     /// Removes all documents from the collection.
@@ -410,7 +401,7 @@ pub trait DBCollection: Send + Sync {
         Ok(())
     }
 
-    /// Drops the colle ction.
+    /// Drops the collection.
     async fn drop_collection(&self) -> Result<(), anyhow::Error> {
         let db_info = self.db_collection().await?;
         db_info.drop().await?;

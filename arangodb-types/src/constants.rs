@@ -1,5 +1,3 @@
-pub const MAX_AQL_RETRIES: usize = 100;
-
 // Mutexes --------------------------------------------------------------------
 // 2 minutes in seconds
 #[cfg(not(feature = "test"))]
