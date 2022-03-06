@@ -64,6 +64,9 @@ pub fn build_api_struct(
     let all_fields_are_optional_or_db_properties =
         info.check_all_db_fields_are_optional_or_properties();
 
+    imports.insert("::serde::Deserialize".to_string());
+    imports.insert("::serde::Serialize".to_string());
+
     // Evaluate default attribute.
     let default_attribute =
         if !info.item_attributes.skip_default && all_fields_are_optional_or_db_properties {
@@ -82,9 +85,11 @@ pub fn build_api_struct(
         let attribute_list = &field.attributes.api;
         let name = field.name();
         let field_type = field.build_api_field_type();
+        let deserialize_with = field.build_field_deserialize_with(imports);
 
         quote! {
             #(#attribute_list)*
+            #deserialize_with
             #visibility #name: #field_type,
         }
     });
@@ -104,9 +109,6 @@ pub fn build_api_struct(
     } else {
         quote! {}
     };
-
-    imports.insert("::serde::Deserialize".to_string());
-    imports.insert("::serde::Serialize".to_string());
 
     // Build result.
     Ok(quote! {

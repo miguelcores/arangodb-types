@@ -1,5 +1,6 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::{quote, ToTokens, TokenStreamExt};
+use std::collections::HashSet;
 use syn::{Field, Fields, Path, Type, Variant};
 
 use crate::data::{FieldAttributes, InnerModelKind};
@@ -384,6 +385,46 @@ impl<'a> FieldInfo<'a> {
             Some(FieldTypeKind::NullableOption) => quote! { NullableOption<#base> },
             Some(FieldTypeKind::Option) => quote! { Option<#base> },
             None => base,
+        }
+    }
+
+    pub fn build_field_deserialize_with(&self, imports: &mut HashSet<String>) -> TokenStream {
+        if self.base_type_kind != BaseTypeKind::Other {
+            return quote! {};
+        }
+
+        let inner_type = if let FieldNode::Field(_) = &self.node {
+            self.inner_type.clone().unwrap()
+        } else {
+            match &self.inner_type {
+                Some(v) => v.clone(),
+                None => quote! { Option<()> },
+            }
+        };
+
+        let inner_type_str = inner_type.to_string();
+        match inner_type_str.as_str() {
+            "u8" | "u16" | "u32" | "u64" | "i8" | "i16" | "i32" | "i64" => {
+                match self.field_type_kind {
+                    Some(FieldTypeKind::NullableOption) => {
+                        let method = format!("deserialize_nullable_{}", inner_type_str);
+
+                        imports.insert(format!("::arangodb_types::types::{}", method));
+                        imports.insert("::arangodb_types::types::NullableOption".to_string());
+
+                        quote! { #[serde(deserialize_with = #method)] }
+                    }
+                    Some(FieldTypeKind::Option) => quote! {},
+                    None => {
+                        let method = format!("deserialize_{}", inner_type_str);
+
+                        imports.insert(format!("::arangodb_types::types::{}", method));
+
+                        quote! { #[serde(deserialize_with = #method)] }
+                    }
+                }
+            }
+            _ => quote! {},
         }
     }
 
