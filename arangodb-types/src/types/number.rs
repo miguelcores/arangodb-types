@@ -261,4 +261,31 @@ mod tests {
         let deserialize: Demo = serde_json::from_str(value).unwrap();
         assert_eq!(deserialize.value, NullableOption::Missing);
     }
+
+    #[test]
+    fn test_deserialize_nullable_struct2() {
+        #[derive(Default, Deserialize)]
+        struct Demo {
+            #[serde(rename = "Q")]
+            #[serde(default)]
+            #[serde(deserialize_with = "deserialize_nullable_u32")]
+            value: NullableOption<u32>,
+        }
+
+        let value = "{ \"Q\": 1234 }";
+        let deserialize: Demo = serde_json::from_str(value).unwrap();
+        assert_eq!(deserialize.value, NullableOption::Value(1234));
+
+        let value = "{ \"Q\": 1234e+3 }";
+        let deserialize: Demo = serde_json::from_str(value).unwrap();
+        assert_eq!(deserialize.value, NullableOption::Value(1234000));
+
+        let value = "{ \"Q\": null }";
+        let deserialize: Demo = serde_json::from_str(value).unwrap();
+        assert_eq!(deserialize.value, NullableOption::Null);
+
+        let value = "{ }";
+        let deserialize: Demo = serde_json::from_str(value).unwrap();
+        assert_eq!(deserialize.value, NullableOption::Missing);
+    }
 }

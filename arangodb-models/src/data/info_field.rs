@@ -412,7 +412,10 @@ impl<'a> FieldInfo<'a> {
                         imports.insert(format!("::arangodb_types::types::{}", method));
                         imports.insert("::arangodb_types::types::NullableOption".to_string());
 
-                        quote! { #[serde(deserialize_with = #method)] }
+                        quote! {
+                            #[serde(default)]
+                            #[serde(deserialize_with = #method)]
+                        }
                     }
                     Some(FieldTypeKind::Option) => quote! {},
                     None => {
@@ -420,7 +423,10 @@ impl<'a> FieldInfo<'a> {
 
                         imports.insert(format!("::arangodb_types::types::{}", method));
 
-                        quote! { #[serde(deserialize_with = #method)] }
+                        quote! {
+                            #[serde(default)]
+                            #[serde(deserialize_with = #method)]
+                        }
                     }
                 }
             }
