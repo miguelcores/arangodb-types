@@ -17,7 +17,7 @@ macro_rules! unsigned_types {
                 type Value = $from_type;
 
                 fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                    formatter.write_str("a string with the format: <collection-name>/<document-id>")
+                    formatter.write_str("an unsigned value")
                 }
 
                 fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
@@ -60,7 +60,7 @@ macro_rules! unsigned_types {
                 }
             }
 
-            deserializer.deserialize_u64(DBVisitor)
+            deserializer.deserialize_any(DBVisitor)
         }
 
         pub fn $null_method<'de, D>(
@@ -139,7 +139,7 @@ macro_rules! signed_types {
                 }
             }
 
-            deserializer.deserialize_i64(DBVisitor)
+            deserializer.deserialize_any(DBVisitor)
         }
 
         pub fn $null_method<'de, D>(
@@ -218,6 +218,7 @@ signed_types!(
 mod tests {
     use super::*;
     use serde::Deserialize;
+    use serde_json::json;
 
     #[test]
     fn test_deserialize_struct() {
@@ -241,8 +242,8 @@ mod tests {
         #[derive(Deserialize)]
         struct Demo {
             #[serde(default)]
-            #[serde(deserialize_with = "deserialize_nullable_u32")]
-            value: NullableOption<u32>,
+            #[serde(deserialize_with = "deserialize_nullable_u64")]
+            value: NullableOption<u64>,
         }
 
         let value = "{ \"value\": 1234 }";
@@ -263,13 +264,13 @@ mod tests {
     }
 
     #[test]
-    fn test_deserialize_nullable_struct2() {
+    fn test_deserialize_nullable_struct_rename() {
         #[derive(Default, Deserialize)]
         struct Demo {
             #[serde(rename = "Q")]
             #[serde(default)]
-            #[serde(deserialize_with = "deserialize_nullable_u32")]
-            value: NullableOption<u32>,
+            #[serde(deserialize_with = "deserialize_nullable_u64")]
+            value: NullableOption<u64>,
         }
 
         let value = "{ \"Q\": 1234 }";
@@ -287,5 +288,58 @@ mod tests {
         let value = "{ }";
         let deserialize: Demo = serde_json::from_str(value).unwrap();
         assert_eq!(deserialize.value, NullableOption::Missing);
+    }
+
+    #[test]
+    fn test_deserialize_nullable_struct_json() {
+        #[derive(Default, Deserialize)]
+        struct Demo {
+            #[serde(rename = "Q")]
+            #[serde(default)]
+            #[serde(deserialize_with = "deserialize_nullable_u64")]
+            value: NullableOption<u64>,
+        }
+
+        let value = json!({ "Q": 1234 });
+        let deserialize: Demo = serde_json::from_value(value).unwrap();
+        assert_eq!(deserialize.value, NullableOption::Value(1234));
+
+        let value = json!({ "Q": 5e+8 });
+        let deserialize: Demo = serde_json::from_value(value).unwrap();
+        assert_eq!(deserialize.value, NullableOption::Value(500000000));
+
+        let value = json!({ "Q": null });
+        let deserialize: Demo = serde_json::from_value(value).unwrap();
+        assert_eq!(deserialize.value, NullableOption::Null);
+
+        let value = json!({});
+        let deserialize: Demo = serde_json::from_value(value).unwrap();
+        assert_eq!(deserialize.value, NullableOption::Missing);
+    }
+
+    #[test]
+    fn test_deserialize_nullable_struct_json2() {
+        #[derive(Default, Deserialize)]
+        struct Demo {
+            #[serde(rename = "K")]
+            value: NullableOption<Demo2>,
+        }
+
+        #[derive(Default, Deserialize)]
+        struct Demo2 {
+            #[serde(rename = "A")]
+            #[serde(default)]
+            #[serde(deserialize_with = "deserialize_nullable_u64")]
+            value: NullableOption<u64>,
+        }
+
+        let value = json!({
+            "K": {"A": 5e+4},
+        });
+        let deserialize: Demo = serde_json::from_value(value).unwrap();
+        assert_eq!(
+            deserialize.value.unwrap().value,
+            NullableOption::Value(50000)
+        );
     }
 }
