@@ -209,6 +209,10 @@ impl<'a> AqlBuilder<'a> {
         self.steps.push(AqlKind::Filter(step));
     }
 
+    pub fn search_step(&mut self, step: Cow<'a, str>) {
+        self.steps.push(AqlKind::Filter(step));
+    }
+
     pub fn sort_step(&mut self, step: Vec<AqlSort<'a>>) {
         self.steps.push(AqlKind::Sort(step));
     }
@@ -295,6 +299,7 @@ impl<'a> AqlBuilder<'a> {
 pub enum AqlKind<'a> {
     Return(AqlReturn<'a>),
     Filter(Cow<'a, str>),
+    Search(Cow<'a, str>),
     Sort(Vec<AqlSort<'a>>),
     Limit(AqlLimit),
     Let(AqlLet<'a>),
@@ -314,6 +319,10 @@ impl<'a> AqlKind<'a> {
             AqlKind::Return(v) => v.build_query(query),
             AqlKind::Filter(v) => {
                 query.push_str(" FILTER ");
+                query.push_str(v.as_ref());
+            }
+            AqlKind::Search(v) => {
+                query.push_str(" SEARCH ");
                 query.push_str(v.as_ref());
             }
             AqlKind::Sort(v) => {
