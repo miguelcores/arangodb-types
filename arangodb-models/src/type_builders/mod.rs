@@ -24,11 +24,11 @@ pub fn process_type(file: File) -> Result<TokenStream, syn::Error> {
     let tokens = match &info.item {
         ModelNode::Struct(_) => {
             let db = build_db_struct_type(&options, &info, &mut imports)?;
-            let api = if options.build_api {
-                build_api_struct_type(&options, &info, &mut imports)?
-            } else {
-                quote! {}
-            };
+            let mut models = Vec::with_capacity(options.build_models.len());
+
+            for model in &options.build_models {
+                models.push(build_api_struct_type(model, &options, &info, &mut imports)?);
+            }
 
             let imports = if !options.no_imports {
                 imports
@@ -44,16 +44,16 @@ pub fn process_type(file: File) -> Result<TokenStream, syn::Error> {
             quote! {
                 #(#imports)*
                 #db
-                #api
+                #(#models)*
             }
         }
         ModelNode::Enum(_) => {
             let db = build_db_enum_type(&options, &info, &mut imports)?;
-            let api = if options.build_api {
-                build_api_enum_type(&options, &info, &mut imports)?
-            } else {
-                quote! {}
-            };
+            let mut models = Vec::with_capacity(options.build_models.len());
+
+            for model in &options.build_models {
+                models.push(build_api_enum_type(model, &options, &info, &mut imports)?);
+            }
 
             let imports = if !options.no_imports {
                 imports
@@ -69,7 +69,7 @@ pub fn process_type(file: File) -> Result<TokenStream, syn::Error> {
             quote! {
                 #(#imports)*
                 #db
-                #api
+                #(#models)*
             }
         }
     };

@@ -9,7 +9,7 @@ The macro options are introduced at the beginning using the pattern:
 ## Options
 
 - `#![no_imports]`: prevents from adding imports of the types used in the models.
-- `#![build_api]`: enables the api mapping that mainly removes the serde renames.
+- `#![build_<model>]`: generates a new model named `model` that basically removes the serde renames.
 - `#![skip_impl]`: disables the generation of the database impls.
 - `#![skip_fields]`: disables the generation of the database field enum for the model.
 - `#![sync_level = "<level>"]`: enables the synchronization of the model or the collection. The values are:
@@ -21,13 +21,3 @@ The macro options are introduced at the beginning using the pattern:
 - `#![collection_name = ".."]`: replaces the default name for the collection.
 - `#![collection_type = ".."]`: replaces the default `CollectionKind` enum by another one.
 - `#![collection_kind = ".."]`: replaces the default name for `CollectionKind` enum.
-- `#![replace_normalize = ".."]`: replaces the normalize method by the one specified.
-- `#![replace_normalize_fields = ".."]`: replaces the normalize_fields method by the one specified.
-- `#![replace_filter = ".."]`: replaces the filter method by the one specified.
-- `#![api_name = ".."]`: replaces the default name for the api model.
-- `#![api_paginated]`: enables the pagination of the api model. This options requires to have also
-  set `#![api_min_rows_per_page = ".."]`, `#![api_max_rows_per_page = ".."]` and the `is_valid_for_sorting`
-  and `is_valid_for_filtering` methods.
-- `#![api_min_rows_per_page = ".."]`: the minimum rows available for the api model pages.
-- `#![api_max_rows_per_page = ".."]`: the maximum rows available for the api model pages.
-- `#![api_paginated_context_type = ".."]`: the type used as context in `PaginatedRequestField`.

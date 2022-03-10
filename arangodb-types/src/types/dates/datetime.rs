@@ -5,8 +5,6 @@ use chrono::{Datelike, LocalResult, TimeZone, Timelike, Utc};
 use serde::de::Visitor;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::traits::{DBNormalize, DBNormalizeResult};
-
 /// A datetime stored in DB as a UNIX milliseconds timestamp.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DBDateTime(pub chrono::DateTime<Utc>);
@@ -214,12 +212,6 @@ impl Deref for DBDateTime {
 impl From<chrono::DateTime<Utc>> for DBDateTime {
     fn from(v: chrono::DateTime<Utc>) -> Self {
         DBDateTime::new(v)
-    }
-}
-
-impl DBNormalize for DBDateTime {
-    fn normalize(&mut self) -> DBNormalizeResult {
-        DBNormalizeResult::NotModified
     }
 }
 

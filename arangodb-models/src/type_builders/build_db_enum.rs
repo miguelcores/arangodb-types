@@ -1,14 +1,12 @@
+use crate::constants::DB_MODEL_TAG;
 use proc_macro2::TokenStream;
 use quote::format_ident;
 use quote::quote;
-use quote::ToTokens;
 use std::collections::HashSet;
 use syn::spanned::Spanned;
 
-use crate::data::{
-    BaseTypeKind, FieldInfo, FieldTypeKind, InnerModelKind, ModelInfo, ModelOptions,
-};
-use crate::utils::from_camel_or_pascal_case_to_snake_case;
+use crate::data::{FieldInfo, InnerModelKind, ModelInfo, ModelOptions};
+use crate::utils::from_pascal_case_to_snake_case;
 
 pub fn build_db_enum_type(
     options: &ModelOptions,
@@ -50,7 +48,6 @@ fn build_enum(
     fields_in_db: &[&FieldInfo],
     imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
-    let attribute_list = &info.item_attributes.db;
     let visibility = info.item.visibility();
     let generics = info.item.generics();
     let document_name = &info.document_name;
@@ -66,25 +63,37 @@ fn build_enum(
 
     // Evaluate fields.
     let field_list = fields_in_db.iter().map(|field| {
-        let attribute_list = &field.attributes.db;
         let name = field.name();
         let db_name = &field.db_name;
 
+        let attributes = &field.attributes.attributes;
+        let attribute_list = field.attributes.attributes_by_model.get(DB_MODEL_TAG);
+        let attributes = if let Some(attribute_list) = attribute_list {
+            quote! {
+                #(#attributes)*
+                #(#attribute_list)*
+            }
+        } else {
+            quote! {
+                #(#attributes)*
+            }
+        };
+
         if let Some(inner_type) = &field.inner_type {
             quote! {
-                #(#attribute_list)*
+                #attributes
                 #[serde(rename = #db_name)]
                 #name(#inner_type),
             }
         } else if !all_variants_are_unit {
             quote! {
-                #(#attribute_list)*
+                #attributes
                 #[serde(rename = #db_name)]
                 #name(Option<()>),
             }
         } else {
             quote! {
-                #(#attribute_list)*
+                #attributes
                 #[serde(rename = #db_name)]
                 #name,
             }
@@ -100,6 +109,19 @@ fn build_enum(
         quote! {}
     };
 
+    let attributes = &info.item_attributes.attributes;
+    let attribute_list = info.item_attributes.attributes_by_model.get(DB_MODEL_TAG);
+    let attributes = if let Some(attribute_list) = attribute_list {
+        quote! {
+            #(#attributes)*
+            #(#attribute_list)*
+        }
+    } else {
+        quote! {
+            #(#attributes)*
+        }
+    };
+
     imports.insert("::serde::Deserialize".to_string());
     imports.insert("::serde::Serialize".to_string());
 
@@ -109,7 +131,7 @@ fn build_enum(
         #simple_attributes
         #[serde(rename_all = "camelCase")]
         #serde_tag_attribute
-        #(#attribute_list)*
+        #attributes
         #visibility enum #document_name #generics {
             #(#field_list)*
         }
@@ -121,10 +143,10 @@ fn build_enum(
 // ----------------------------------------------------------------------------
 
 fn build_impl(
-    options: &ModelOptions,
+    _options: &ModelOptions,
     info: &ModelInfo,
     fields_in_db: &[&FieldInfo],
-    imports: &mut HashSet<String>,
+    _imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
     let generics = info.item.generics();
     let document_name = &info.document_name;
@@ -134,7 +156,7 @@ fn build_impl(
     // Evaluate is * method.
     let is_method_list = fields_in_db.iter().map(|field| {
         let name = field.name();
-        let fn_name = from_camel_or_pascal_case_to_snake_case(&name.to_string());
+        let fn_name = from_pascal_case_to_snake_case(&name.to_string());
         let fn_name = format_ident!("is_{}", fn_name, span = name.span());
 
         if field.inner_type.is_some() || !all_variants_are_unit {
@@ -186,266 +208,11 @@ fn build_impl(
         }
     };
 
-    // Evaluate filter method.
-    let filter_method_tokens = if let Some(method_name) = &info.replace_filter {
-        method_name.to_token_stream()
-    } else if let Some(method_name) = &options.replace_filter {
-        quote! {
-            #[allow(unused_variables)]
-            pub fn filter(&mut self, filter: &Self) {
-                #method_name(self, filter)
-            }
-        }
-    } else if !all_variants_are_unit {
-        let filter_field_list = fields_in_db.iter().map(|field| {
-            let name = field.name();
-            if all_variants_are_unit {
-                quote! {
-                    #document_name::#name => {}
-                }
-            } else if field.inner_type.is_some() {
-                match field.attributes.inner_model {
-                    InnerModelKind::Struct | InnerModelKind::Enum => quote! {
-                        #document_name::#name(v) => match filter {
-                            #document_name::#name(v2) => v.filter(v2),
-                            _ => {}
-                        }
-                    },
-                    InnerModelKind::Data => quote! {
-                        #document_name::#name(_) => {}
-                    },
-                }
-            } else {
-                quote! {
-                    #document_name::#name(_) => {}
-                }
-            }
-        });
-
-        quote! {
-            #[allow(unused_variables)]
-            pub fn filter(&mut self, filter: &Self) {
-                match self {
-                    #(#filter_field_list)*
-                }
-            }
-        }
-    } else {
-        quote! {
-            #[allow(unused_variables)]
-            pub fn filter(&mut self, filter: &Self) { }
-        }
-    };
-
-    // Evaluate normalize method.
-    imports.insert("::arangodb_types::traits::DBNormalizeResult".to_string());
-    imports.insert("::arangodb_types::traits::DBNormalize".to_string());
-
-    let normalize_or_remove_method_tokens = if let Some(method_name) = &info.replace_normalize {
-        method_name.to_token_stream()
-    } else if let Some(method_name) = &options.replace_normalize {
-        quote! {
-            fn normalize(&mut self) -> DBNormalizeResult {
-                #method_name(self)
-            }
-        }
-    } else if !all_variants_are_unit {
-        let normalize_field_list = fields_in_db.iter().filter_map(|field| {
-            let name = field.name();
-
-            if field.attributes.skip_normalize {
-                return Some(quote! {
-                    #document_name::#name(_) => {}
-                });
-            }
-
-            if field.inner_type.is_none() {
-                return Some(quote! {
-                    #document_name::#name(v) =>{
-                        if v.is_some() {
-                            *v = None;
-                            modified = true;
-                        }
-                    }
-                });
-            }
-
-            let base = match field.attributes.inner_model {
-                InnerModelKind::Data => match field.base_type_kind {
-                    BaseTypeKind::Other | BaseTypeKind::Box | BaseTypeKind::DBReference => {
-                        Some(quote! {
-                            match v.normalize() {
-                                DBNormalizeResult::NotModified => {}
-                                DBNormalizeResult::Modified => {
-                                    modified = true;
-                                }
-                                DBNormalizeResult::Removed => {
-                                    modified = true;
-                                    remove = true;
-                                }
-                            }
-                        })
-                    }
-                    BaseTypeKind::VecDBReference => Some(quote! {
-                        for i in (0..v.len()).rev() {
-                            let v2 = v.get_mut(i).unwrap();
-
-                            match v2.normalize() {
-                                DBNormalizeResult::NotModified => {}
-                                DBNormalizeResult::Modified => {
-                                    modified = true;
-                                }
-                                DBNormalizeResult::Removed => {
-                                    modified = true;
-                                    v.remove(i);
-                                }
-                            }
-                        }
-
-                        if v.is_empty() {
-                            modified = true;
-                            remove = true;
-                        }
-                    }),
-                    BaseTypeKind::Vec | BaseTypeKind::HashMap => Some(quote! {
-                        if v.is_empty() {
-                            modified = true;
-                            remove = true;
-                        }
-                    }),
-                },
-                InnerModelKind::Struct | InnerModelKind::Enum => match field.base_type_kind {
-                    BaseTypeKind::Other | BaseTypeKind::Box => Some(quote! {
-                        match v.normalize() {
-                            DBNormalizeResult::NotModified => {}
-                            DBNormalizeResult::Modified => {
-                                modified = true;
-                            }
-                            DBNormalizeResult::Removed => {
-                                modified = true;
-                                remove = true;
-                            }
-                        }
-                    }),
-                    BaseTypeKind::Vec => Some(quote! {
-                        for i in (0..v.len()).rev() {
-                            let v2 = v.get_mut(i).unwrap();
-
-                            match v2.normalize() {
-                                DBNormalizeResult::NotModified => {}
-                                DBNormalizeResult::Modified => {
-                                    modified = true;
-                                }
-                                DBNormalizeResult::Removed => {
-                                    modified = true;
-                                    v.remove(i);
-                                }
-                            }
-                        }
-
-                        if v.is_empty() {
-                            remove = true;
-                        }
-                    }),
-                    BaseTypeKind::VecDBReference => {
-                        panic!("Cannot declare a DBReference value as Struct or Enum model")
-                    }
-                    BaseTypeKind::HashMap => Some(quote! {
-                        v.retain(|_, v| {
-                            match v.normalize() {
-                                DBNormalizeResult::NotModified => true,
-                                DBNormalizeResult::Modified => {
-                                    modified = true;
-                                    true
-                                }
-                                DBNormalizeResult::Removed => {
-                                    modified = true;
-                                    false
-                                }
-                            }
-                        });
-
-                        if v.is_empty() {
-                            remove = true;
-                        }
-                    }),
-                    BaseTypeKind::DBReference => {
-                        panic!("Cannot declare a DBReference value as Struct or Enum model")
-                    }
-                },
-            };
-
-            match field.field_type_kind {
-                Some(FieldTypeKind::NullableOption) => base.map(|base| {
-                    quote! {
-                        #document_name::#name(v) => {
-                            if let NullableOption::Value(v) = v {
-                                let mut remove = false;
-                                #base
-
-                                if remove {
-                                    *v = NullableOption::Null;
-                                }
-                            }
-                        }
-                    }
-                }),
-                Some(FieldTypeKind::Option) => base.map(|base| {
-                    quote! {
-                        #document_name::#name(v) => {
-                            if let Some(v) = v {
-                                let mut remove = false;
-                                #base
-
-                                if remove {
-                                    *v = None;
-                                }
-                            }
-                        }
-                    }
-                }),
-                None => base.map(|base| {
-                    quote! {
-                        #document_name::#name(v) =>{
-                            let mut remove = false;
-                            #base
-                        }
-                    }
-                }),
-            }
-        });
-
-        quote! {
-            fn normalize(&mut self) -> DBNormalizeResult {
-                let mut modified = false;
-
-                match self {
-                    #(#normalize_field_list,)*
-                }
-
-                if modified {
-                    DBNormalizeResult::Modified
-                } else {
-                    DBNormalizeResult::NotModified
-                }
-            }
-        }
-    } else {
-        quote! {
-            fn normalize(&mut self) -> DBNormalizeResult {
-                    DBNormalizeResult::NotModified
-            }
-        }
-    };
-
     // Build result.
-    imports.insert("::arangodb_types::traits::DBNormalize".to_string());
-
     Ok(quote! {
         impl #generics #document_name #generics {
             #(#is_method_list)*
             #map_values_to_null_method_tokens
-            #filter_method_tokens
 
             pub fn is_all_missing(&self) -> bool {
                 false
@@ -454,10 +221,6 @@ fn build_impl(
             pub fn is_all_null(&self) -> bool {
                 false
             }
-        }
-
-        impl #generics DBNormalize for #document_name #generics {
-            #normalize_or_remove_method_tokens
         }
     })
 }
@@ -494,7 +257,7 @@ fn build_field_list(
                 #name(Option<()>),
             });
             field_paths.push(quote! {
-                #enum_name::#name(_) => #db_name.into(),
+                #enum_name::#name(_) => Cow::Borrowed(#db_name),
             });
             get_variant_list.push(quote! {
                 #document_name::#name => #enum_name::#name(None),
@@ -512,7 +275,7 @@ fn build_field_list(
                         #name(Option<()>),
                     });
                     field_paths.push(quote! {
-                        #enum_name::#name(_) => #db_name.into(),
+                        #enum_name::#name(_) => Cow::Borrowed(#db_name),
                     });
                     get_variant_list.push(quote! {
                         #document_name::#name(_) => #enum_name::#name(None),
@@ -530,9 +293,9 @@ fn build_field_list(
                     });
                     field_paths.push(quote! {
                         #enum_name::#name(v) => if let Some(v) = v {
-                            format!("V.{}", v.path()).into()
+                            Cow::Owned(format!("V.{}", v.path()))
                         } else {
-                            #db_name.into()
+                            Cow::Borrowed(#db_name)
                         },
                     });
                     get_variant_list.push(quote! {
@@ -551,9 +314,9 @@ fn build_field_list(
                     });
                     field_paths.push(quote! {
                         #enum_name::#name(v) => if let Some(v) = v {
-                            format!("V.{}", v.path()).into()
+                            Cow::Owned(format!("V.{}", v.path()))
                         } else {
-                            #db_name.into()
+                            Cow::Borrowed(#db_name)
                         },
                     });
                     get_variant_list.push(quote! {
@@ -578,12 +341,20 @@ fn build_field_list(
         #[serde(rename_all = "camelCase")]
         #[serde(tag = "T", content = "V")]
         #visibility enum #enum_name {
+            #[serde(rename = "_T")]
+            TypeField(Option<()>),
+
+            #[serde(rename = "_V")]
+            ValueField(Option<()>),
+
             #(#field_names)*
         }
 
         impl #enum_name {
             pub fn path(&self) -> Cow<'static, str> {
                 match self {
+                    #enum_name::TypeField(_) => Cow::Borrowed("T"),
+                    #enum_name::ValueField(_) => Cow::Borrowed("V"),
                     #(#field_paths)*
                 }
             }

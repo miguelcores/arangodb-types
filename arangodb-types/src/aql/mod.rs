@@ -249,6 +249,10 @@ impl<'a> AqlBuilder<'a> {
         self.steps.push(AqlKind::Collect(step));
     }
 
+    pub fn other_step(&mut self, step: Cow<'a, str>) {
+        self.steps.push(AqlKind::Other(step));
+    }
+
     pub fn add_variable<T: Serialize>(
         &mut self,
         value: &T,
@@ -309,6 +313,7 @@ pub enum AqlKind<'a> {
     Insert(AqlInsert<'a>),
     Upsert(AqlUpsert<'a>),
     Collect(AqlCollect<'a>),
+    Other(Cow<'a, str>),
 }
 
 impl<'a> AqlKind<'a> {
@@ -346,6 +351,9 @@ impl<'a> AqlKind<'a> {
             AqlKind::Insert(v) => v.build_query(query),
             AqlKind::Upsert(v) => v.build_query(query),
             AqlKind::Collect(v) => v.build_query(query),
+            AqlKind::Other(v) => {
+                query.push_str(v.as_ref());
+            }
         }
     }
 }

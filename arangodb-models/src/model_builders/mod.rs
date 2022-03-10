@@ -18,11 +18,11 @@ pub fn process_model(file: File) -> Result<TokenStream, syn::Error> {
     let mut imports = HashSet::<String>::new();
 
     let db = build_db_model(&options, &info, &mut imports)?;
-    let api = if options.build_api {
-        build_api_model(&options, &info, &mut imports)?
-    } else {
-        quote! {}
-    };
+    let mut models = Vec::with_capacity(options.build_models.len());
+
+    for model_name in &options.build_models {
+        models.push(build_api_model(model_name, &options, &info, &mut imports)?);
+    }
 
     let imports = if !options.no_imports {
         imports
@@ -36,7 +36,7 @@ pub fn process_model(file: File) -> Result<TokenStream, syn::Error> {
     let tokens = quote! {
         #(#imports)*
         #db
-        #api
+        #(#models)*
     };
 
     // Keep this for debugging purpose.

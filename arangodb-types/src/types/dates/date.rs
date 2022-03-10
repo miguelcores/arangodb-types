@@ -5,7 +5,6 @@ use chrono::{Datelike, TimeZone, Utc};
 use serde::de::Visitor;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::traits::{DBNormalize, DBNormalizeResult};
 use crate::types::dates::DBDateTime;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -140,12 +139,6 @@ impl Deref for DBDate {
 impl From<chrono::Date<Utc>> for DBDate {
     fn from(v: chrono::Date<Utc>) -> Self {
         DBDate(v)
-    }
-}
-
-impl DBNormalize for DBDate {
-    fn normalize(&mut self) -> DBNormalizeResult {
-        DBNormalizeResult::NotModified
     }
 }
 

@@ -6,8 +6,6 @@ use serde::{Deserialize, Serialize};
 use arangodb_models::type_model;
 
 use crate::traits::AQLMapping;
-use crate::traits::DBNormalize;
-use crate::traits::DBNormalizeResult;
 use crate::types::dates::DBDateTime;
 use crate::types::DBUuid;
 

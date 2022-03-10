@@ -8,8 +8,8 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::traits::utils::check_client_is_write_conflict;
+use crate::traits::AQLMapping;
 use crate::traits::DBCollection;
-use crate::traits::{AQLMapping, DBNormalize, DBNormalizeResult};
 use crate::types::DBId;
 
 #[async_trait]
@@ -54,12 +54,6 @@ pub trait DBDocument:
 
     /// Maps all fields that contain a value into a null.
     fn map_values_to_null(&mut self);
-
-    /// Normalizes the fields of the document to clean it up.
-    fn normalize_fields(&mut self) -> DBNormalizeResult;
-
-    /// Filters the current document using the specified filter.
-    fn filter(&mut self, filter: &Self);
 
     /// Inserts a new document.
     ///
@@ -406,14 +400,5 @@ pub trait DBDocument:
                 }
             }
         }
-    }
-}
-
-impl<T> DBNormalize for T
-where
-    T: DBDocument,
-{
-    fn normalize(&mut self) -> DBNormalizeResult {
-        self.normalize_fields()
     }
 }

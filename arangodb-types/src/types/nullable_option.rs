@@ -1,7 +1,5 @@
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::traits::{DBNormalize, DBNormalizeResult};
-
 #[derive(Debug, Clone, Serialize, Eq, PartialEq)]
 #[serde(untagged)]
 pub enum NullableOption<T> {
@@ -109,33 +107,6 @@ impl<T> NullableOption<T> {
             NullableOption::Missing => None,
             NullableOption::Null => None,
             NullableOption::Value(v) => Some(v),
-        }
-    }
-}
-
-impl<T: DBNormalize> DBNormalize for NullableOption<T> {
-    // METHODS ----------------------------------------------------------------
-
-    fn normalize(&mut self) -> DBNormalizeResult {
-        let mut modified = false;
-
-        if let NullableOption::Value(value) = self {
-            match value.normalize() {
-                DBNormalizeResult::NotModified => {}
-                DBNormalizeResult::Modified => {
-                    modified = true;
-                }
-                DBNormalizeResult::Removed => {
-                    *self = NullableOption::Null;
-                    modified = true;
-                }
-            }
-        }
-
-        if modified {
-            DBNormalizeResult::Modified
-        } else {
-            DBNormalizeResult::NotModified
         }
     }
 }

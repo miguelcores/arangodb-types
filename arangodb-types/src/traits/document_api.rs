@@ -4,7 +4,7 @@ use std::hash::Hash;
 use serde::{Deserialize, Serialize};
 
 pub trait APIDocument {
-    type Key: Debug
+    type Id: Debug
         + ToString
         + Eq
         + PartialEq
@@ -17,8 +17,5 @@ pub trait APIDocument {
 
     // GETTERS ----------------------------------------------------------------
 
-    fn id(&self) -> &Option<Self::Key>;
-
-    /// Whether all the fields are missing or not.
-    fn is_all_missing(&self) -> bool;
+    fn id(&self) -> &Option<Self::Id>;
 }

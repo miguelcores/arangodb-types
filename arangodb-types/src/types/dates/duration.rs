@@ -4,8 +4,6 @@ use std::ops::Deref;
 use serde::de::Visitor;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::traits::{DBNormalize, DBNormalizeResult};
-
 #[derive(Default, Debug, Clone, Eq, PartialEq)]
 pub struct DBDuration(u64);
 
@@ -79,12 +77,6 @@ impl From<u32> for DBDuration {
 impl From<u64> for DBDuration {
     fn from(v: u64) -> Self {
         DBDuration(v)
-    }
-}
-
-impl DBNormalize for DBDuration {
-    fn normalize(&mut self) -> DBNormalizeResult {
-        DBNormalizeResult::NotModified
     }
 }
 

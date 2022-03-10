@@ -57,36 +57,24 @@ impl<'a> FieldInfo<'a> {
         let attributes = &mut result.attributes;
         match result.field_type_kind {
             Some(FieldTypeKind::NullableOption) => {
-                attributes.db.push(quote! {
-                    #[serde(skip_serializing_if = "NullableOption::is_missing")]
-                });
-                attributes.api.push(quote! {
+                attributes.attributes.push(quote! {
                     #[serde(skip_serializing_if = "NullableOption::is_missing")]
                 });
             }
             Some(FieldTypeKind::Option) => {
-                attributes.db.push(quote! {
-                    #[serde(skip_serializing_if = "Option::is_none")]
-                });
-                attributes.api.push(quote! {
+                attributes.attributes.push(quote! {
                     #[serde(skip_serializing_if = "Option::is_none")]
                 });
             }
             None => match result.base_type_kind {
                 BaseTypeKind::Other | BaseTypeKind::Box => {}
                 BaseTypeKind::Vec | BaseTypeKind::VecDBReference => {
-                    attributes.db.push(quote! {
-                        #[serde(skip_serializing_if = "Vec::is_empty")]
-                    });
-                    attributes.api.push(quote! {
+                    attributes.attributes.push(quote! {
                         #[serde(skip_serializing_if = "Vec::is_empty")]
                     });
                 }
                 BaseTypeKind::HashMap => {
-                    attributes.db.push(quote! {
-                        #[serde(skip_serializing_if = "HashMap::is_empty")]
-                    });
-                    attributes.api.push(quote! {
+                    attributes.attributes.push(quote! {
                         #[serde(skip_serializing_if = "HashMap::is_empty")]
                     });
                 }
@@ -357,17 +345,18 @@ impl<'a> FieldInfo<'a> {
         }
     }
 
-    pub fn build_api_field_type(&self) -> TokenStream {
-        let inner_type = if let Some(api_inner_type) = &self.attributes.api_inner_type {
-            quote! { #api_inner_type }
-        } else if let FieldNode::Field(_) = &self.node {
-            self.inner_type.clone().unwrap()
-        } else {
-            match &self.inner_type {
-                Some(v) => v.clone(),
-                None => quote! { Option<()> },
-            }
-        };
+    pub fn build_api_field_type(&self, model: &str) -> TokenStream {
+        let inner_type =
+            if let Some(api_inner_type) = self.attributes.inner_type_by_model.get(model) {
+                quote! { #api_inner_type }
+            } else if let FieldNode::Field(_) = &self.node {
+                self.inner_type.clone().unwrap()
+            } else {
+                match &self.inner_type {
+                    Some(v) => v.clone(),
+                    None => quote! { Option<()> },
+                }
+            };
 
         let base = match self.base_type_kind {
             BaseTypeKind::Other => quote! { #inner_type },

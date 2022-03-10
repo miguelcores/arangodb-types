@@ -3,9 +3,7 @@ use std::io::Write;
 use serde::{Deserialize, Serialize};
 
 use crate::aql::{get_aql_inline_variable, AqlBuilder, AqlLet, AqlLetKind};
-use crate::traits::{
-    APIDocument, AQLMapping, DBCollection, DBDocument, DBNormalize, DBNormalizeResult,
-};
+use crate::traits::{APIDocument, AQLMapping, DBCollection, DBDocument};
 use crate::types::APIReference;
 
 #[derive(Debug, Clone, Eq, Serialize, Deserialize)]
@@ -74,26 +72,11 @@ impl<T: DBDocument> DBReference<T> {
     pub fn map_to_api<F, R>(self, mapper: F) -> APIReference<R>
     where
         F: FnOnce(Box<T>) -> Box<R>,
-        R: APIDocument<Key = T::Key>,
+        R: APIDocument<Id = T::Key>,
     {
         match self {
             DBReference::Document(v) => APIReference::Document(mapper(v)),
             DBReference::Key(v) => APIReference::new_key(v.key),
-        }
-    }
-}
-
-impl<T: DBDocument> DBNormalize for DBReference<T> {
-    // METHODS ----------------------------------------------------------------
-
-    fn normalize(&mut self) -> DBNormalizeResult {
-        match self {
-            DBReference::Key(_) => DBNormalizeResult::NotModified,
-            DBReference::Document(document) => match document.normalize() {
-                DBNormalizeResult::NotModified => DBNormalizeResult::NotModified,
-                DBNormalizeResult::Modified => DBNormalizeResult::Modified,
-                DBNormalizeResult::Removed => DBNormalizeResult::Modified,
-            },
         }
     }
 }
@@ -150,62 +133,3 @@ impl<T: DBDocument> AQLMapping for DBReference<T> {
         }
     }
 }
-
-// ----------------------------------------------------------------------------
-// ----------------------------------------------------------------------------
-// ----------------------------------------------------------------------------
-
-// TODO
-// #[cfg(test)]
-// mod test {
-//     use std::sync::Arc;
-//
-//     use arcstr::ArcStr;
-//     use async_trait::async_trait;
-//
-//     use arangodb_models::model;
-//
-//     use crate::traits::AQLMapping;
-//     use crate::traits::DBNormalize;
-//     use crate::traits::DBNormalizeResult;
-//     use crate::types::DBId;
-//     use crate::types::{Collection, DBInfo, DBUuid};
-//
-//     use super::*;
-//
-//     struct TestCollection {}
-//
-//     impl DBCollection for TestCollection {
-//         type Document = ();
-//
-//         fn name() -> &'static str {
-//             todo!()
-//         }
-//
-//         fn db_info(&self) -> &Arc<DBInfo> {
-//             todo!()
-//         }
-//     }
-//
-//     model! {
-//         // TODO #![no_imports]
-//
-//         pub struct Test {
-//         }
-//     }
-//
-//     #[test]
-//     fn test_serialization() {
-//         let key = DBUuid::new();
-//         let key_ref = DBReference::<TestDBDocument>::new_key(key.clone());
-//         let doc_ref = DBReference::Document(Box::new(TestDBDocument {
-//             db_key: Some(key),
-//             ..Default::default()
-//         }));
-//
-//         let key_ref_serialization = serde_json::to_string(&key_ref).unwrap();
-//         let doc_ref_serialization = serde_json::to_string(&doc_ref).unwrap();
-//
-//         assert_eq!(key_ref_serialization, doc_ref_serialization);
-//     }
-// }

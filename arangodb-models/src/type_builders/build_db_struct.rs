@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 
+use crate::constants::DB_MODEL_TAG;
 use proc_macro2::TokenStream;
 use quote::quote;
-use quote::ToTokens;
 
 use crate::data::{
     BaseTypeKind, FieldInfo, FieldTypeKind, InnerModelKind, ModelInfo, ModelOptions,
@@ -50,7 +50,6 @@ fn build_struct(
     fields_in_db: &[&FieldInfo],
     imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
-    let attribute_list = &info.item_attributes.db;
     let visibility = info.item.visibility();
     let generics = info.item.generics();
     let document_name = &info.document_name;
@@ -76,26 +75,51 @@ fn build_struct(
     let field_list = fields_in_db.iter().map(|field| {
         let node = field.node.as_field().unwrap();
         let visibility = &node.vis;
-        let attribute_list = &field.attributes.db;
         let name = field.name();
         let db_name = &field.db_name;
         let field_type = field.build_db_field_type();
         let deserialize_with = field.build_field_deserialize_with(imports);
 
+        let attributes = &field.attributes.attributes;
+        let attribute_list = field.attributes.attributes_by_model.get(DB_MODEL_TAG);
+        let attributes = if let Some(attribute_list) = attribute_list {
+            quote! {
+                #(#attributes)*
+                #(#attribute_list)*
+            }
+        } else {
+            quote! {
+                #(#attributes)*
+            }
+        };
+
         quote! {
-            #(#attribute_list)*
+            #attributes
             #[serde(rename = #db_name)]
             #deserialize_with
             #visibility #name: #field_type,
         }
     });
 
+    let attributes = &info.item_attributes.attributes;
+    let attribute_list = info.item_attributes.attributes_by_model.get(DB_MODEL_TAG);
+    let attributes = if let Some(attribute_list) = attribute_list {
+        quote! {
+            #(#attributes)*
+            #(#attribute_list)*
+        }
+    } else {
+        quote! {
+            #(#attributes)*
+        }
+    };
+
     // Build result.
     Ok(quote! {
         #[derive(Debug, Clone, Serialize, Deserialize)]
         #[serde(rename_all = "camelCase")]
         #default_attribute
-        #(#attribute_list)*
+        #attributes
         #visibility struct #document_name #generics {
             #(#field_list)*
         }
@@ -107,7 +131,7 @@ fn build_struct(
 // ----------------------------------------------------------------------------
 
 fn build_impl(
-    options: &ModelOptions,
+    _options: &ModelOptions,
     info: &ModelInfo,
     fields_in_db: &[&FieldInfo],
     imports: &mut HashSet<String>,
@@ -344,290 +368,7 @@ fn build_impl(
         }
     };
 
-    // Evaluate filter method.
-    let filter_method_tokens = if let Some(method_name) = &info.replace_filter {
-        method_name.to_token_stream()
-    } else if let Some(method_name) = &options.replace_filter {
-        quote! {
-            #[allow(unused_variables)]
-            pub fn filter(&mut self, filter: &Self) {
-                #method_name(self, filter)
-            }
-        }
-    } else {
-        let filter_field_list = fields_in_db.iter().filter_map(|field| {
-            let name = field.name();
-
-            match field.attributes.inner_model {
-                InnerModelKind::Data => match field.field_type_kind {
-                    Some(FieldTypeKind::NullableOption) => Some({
-                        quote! {
-                            if filter.#name.is_missing() {
-                                self.#name = NullableOption::Missing;
-                            }
-                        }
-                    }),
-                    Some(FieldTypeKind::Option) => Some({
-                        quote! {
-                            if filter.#name.is_none() {
-                                self.#name = None;
-                            }
-                        }
-                    }),
-                    None => None,
-                },
-                InnerModelKind::Struct | InnerModelKind::Enum => {
-                    let base = match field.base_type_kind {
-                        BaseTypeKind::Other | BaseTypeKind::Box => Some(quote! {
-                            self_field.filter(filter_field);
-                        }),
-                        BaseTypeKind::Vec => None,
-                        BaseTypeKind::VecDBReference => {
-                            panic!("Cannot declare a VecDBReference value as Struct or Enum model")
-                        }
-                        BaseTypeKind::HashMap => None,
-                        BaseTypeKind::DBReference => {
-                            panic!("Cannot declare a DBReference value as Struct or Enum model")
-                        }
-                    };
-
-                    match field.field_type_kind {
-                        Some(FieldTypeKind::NullableOption) => base.map(|base| {
-                            quote! {
-                                match &filter.#name {
-                                    NullableOption::Missing => {
-                                        self.#name = NullableOption::Missing;
-                                    }
-                                    NullableOption::Null => {}
-                                    NullableOption::Value(filter_field) => {
-                                        if let NullableOption::Value(self_field) = &mut self.#name {
-                                            #base
-                                        }
-                                    }
-                                }
-                            }
-                        }),
-                        Some(FieldTypeKind::Option) => base.map(|base| {
-                            quote! {
-                                match &filter.#name {
-                                    NullableOption::Missing => {
-                                        self.#name = NullableOption::Missing;
-                                    }
-                                    NullableOption::Null => {}
-                                    NullableOption::Value(filter_field) => {
-                                        if let NullableOption::Value(self_field) = &mut self.#name {
-                                            #base
-                                        }
-                                    }
-                                }
-                            }
-                        }),
-                        None => base.map(|base| {
-                            quote! {
-                                {
-                                    let filter_field = &filter.#name;
-                                    let self_field = &mut self.#name;
-                                    #base
-                               }
-                            }
-                        }),
-                    }
-                }
-            }
-        });
-
-        quote! {
-            #[allow(unused_variables)]
-            pub fn filter(&mut self, filter: &Self) {
-                #(#filter_field_list;)*
-            }
-        }
-    };
-
-    // Evaluate normalize method.
-    let normalize_or_remove_method_tokens = if let Some(method_name) = &info.replace_normalize {
-        method_name.to_token_stream()
-    } else if let Some(method_name) = &options.replace_normalize {
-        imports.insert("::arangodb_types::traits::DBNormalizeResult".to_string());
-        imports.insert("::arangodb_types::traits::DBNormalize".to_string());
-
-        quote! {
-            fn normalize(&mut self) -> DBNormalizeResult {
-                #method_name(self)
-            }
-        }
-    } else {
-        let normalize_field_list = fields_in_db.iter().filter_map(|field| {
-            imports.insert("::arangodb_types::traits::DBNormalizeResult".to_string());
-            imports.insert("::arangodb_types::traits::DBNormalize".to_string());
-
-            if field.attributes.skip_normalize {
-                return None;
-            }
-
-            let name = field.name();
-            let base = match field.attributes.inner_model {
-                InnerModelKind::Data => match field.base_type_kind {
-                    BaseTypeKind::Other | BaseTypeKind::Box | BaseTypeKind::DBReference => {
-                        Some(quote! {
-                            match v.normalize() {
-                                DBNormalizeResult::NotModified => {}
-                                DBNormalizeResult::Modified => {
-                                    modified = true;
-                                }
-                                DBNormalizeResult::Removed => {
-                                    modified = true;
-                                    remove = true;
-                                }
-                            }
-                        })
-                    }
-                    BaseTypeKind::VecDBReference => Some(quote! {
-                        for i in (0..v.len()).rev() {
-                            let v2 = v.get_mut(i).unwrap();
-
-                            match v2.normalize() {
-                                DBNormalizeResult::NotModified => {}
-                                DBNormalizeResult::Modified => {
-                                    modified = true;
-                                }
-                                DBNormalizeResult::Removed => {
-                                    modified = true;
-                                    v.remove(i);
-                                }
-                            }
-                        }
-
-                        if v.is_empty() {
-                            modified = true;
-                            remove = true;
-                        }
-                    }),
-                    BaseTypeKind::Vec | BaseTypeKind::HashMap => Some(quote! {
-                        if v.is_empty() {
-                            modified = true;
-                            remove = true;
-                        }
-                    }),
-                },
-                InnerModelKind::Struct | InnerModelKind::Enum => match field.base_type_kind {
-                    BaseTypeKind::Other | BaseTypeKind::Box => Some(quote! {
-                        match v.normalize() {
-                            DBNormalizeResult::NotModified => {}
-                            DBNormalizeResult::Modified => {
-                                modified = true;
-                            }
-                            DBNormalizeResult::Removed => {
-                                modified = true;
-                                remove = true;
-                            }
-                        }
-                    }),
-                    BaseTypeKind::Vec => Some(quote! {
-                        for i in (0..v.len()).rev() {
-                            let v2 = v.get_mut(i).unwrap();
-
-                            match v2.normalize() {
-                                DBNormalizeResult::NotModified => {}
-                                DBNormalizeResult::Modified => {
-                                    modified = true;
-                                }
-                                DBNormalizeResult::Removed => {
-                                    modified = true;
-                                    v.remove(i);
-                                }
-                            }
-                        }
-
-                        if v.is_empty() {
-                            remove = true;
-                        }
-                    }),
-                    BaseTypeKind::VecDBReference => {
-                        panic!("Cannot declare a VecDBReference value as Struct or Enum model")
-                    }
-                    BaseTypeKind::HashMap => Some(quote! {
-                        v.retain(|_, v| {
-                            match v.normalize() {
-                                DBNormalizeResult::NotModified => true,
-                                DBNormalizeResult::Modified => {
-                                    modified = true;
-                                    true
-                                }
-                                DBNormalizeResult::Removed => {
-                                    modified = true;
-                                    false
-                                }
-                            }
-                        });
-
-                        if v.is_empty() {
-                            remove = true;
-                        }
-                    }),
-                    BaseTypeKind::DBReference => {
-                        panic!("Cannot declare a DBReference value as Struct or Enum model")
-                    }
-                },
-            };
-
-            match field.field_type_kind {
-                Some(FieldTypeKind::NullableOption) => base.map(|base| {
-                    quote! {
-                        if let NullableOption::Value(v) = &mut self.#name {
-                            let mut remove = false;
-                            #base
-
-                            if remove {
-                                self.#name = NullableOption::Null;
-                            }
-                        }
-                    }
-                }),
-                Some(FieldTypeKind::Option) => base.map(|base| {
-                    quote! {
-                        if let Some(v) = &mut self.#name {
-                            let mut remove = false;
-                            #base
-
-                            if remove {
-                                self.#name = None;
-                            }
-                        }
-                    }
-                }),
-                None => base.map(|base| {
-                    quote! {
-                        {
-                            let v = &mut self.#name;
-                            let mut remove = false;
-                            #base
-                        }
-                    }
-                }),
-            }
-        });
-
-        quote! {
-            fn normalize(&mut self) -> DBNormalizeResult {
-                let mut modified = false;
-
-                #(#normalize_field_list;)*
-
-                if self.is_all_null_or_missing() {
-                    DBNormalizeResult::Removed
-                } else if modified {
-                    DBNormalizeResult::Modified
-                } else {
-                    DBNormalizeResult::NotModified
-                }
-            }
-        }
-    };
-
     // Build result.
-    imports.insert("::arangodb_types::traits::DBNormalize".to_string());
-
     Ok(quote! {
         impl #generics #document_name #generics {
             #is_all_missing_method_tokens
@@ -635,11 +376,6 @@ fn build_impl(
             #is_all_null_or_missing_method_tokens
             #all_null_method_tokens
             #map_values_to_null_method_tokens
-            #filter_method_tokens
-        }
-
-        impl #generics DBNormalize for #document_name #generics {
-            #normalize_or_remove_method_tokens
         }
     })
 }

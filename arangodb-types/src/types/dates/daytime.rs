@@ -5,8 +5,6 @@ use chrono::Timelike;
 use serde::de::Visitor;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::traits::{DBNormalize, DBNormalizeResult};
-
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct DBDayTime(pub chrono::NaiveTime);
 
@@ -66,12 +64,6 @@ impl Deref for DBDayTime {
 impl From<chrono::NaiveTime> for DBDayTime {
     fn from(v: chrono::NaiveTime) -> Self {
         DBDayTime(v)
-    }
-}
-
-impl DBNormalize for DBDayTime {
-    fn normalize(&mut self) -> DBNormalizeResult {
-        DBNormalizeResult::NotModified
     }
 }
 

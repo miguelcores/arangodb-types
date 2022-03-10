@@ -5,8 +5,6 @@ use std::str::FromStr;
 use serde::de::Visitor;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::traits::{DBNormalize, DBNormalizeResult};
-
 /// The id of a collection.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct DBId<K, C> {
@@ -98,11 +96,5 @@ impl<'de, K: FromStr, C: FromStr> Deserialize<'de> for DBId<K, C> {
             phantom_key: PhantomData::default(),
             phantom_collection: PhantomData::default(),
         })
-    }
-}
-
-impl<K, C> DBNormalize for DBId<K, C> {
-    fn normalize(&mut self) -> DBNormalizeResult {
-        DBNormalizeResult::NotModified
     }
 }

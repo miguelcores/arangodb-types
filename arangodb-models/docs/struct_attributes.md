@@ -11,6 +11,6 @@ struct Name {
 
 ## Attributes
 
-- `#[db_attr(...)]`: adds an attribute only to the database model.
-- `#[api_attr(...)]`: adds an attribute only to the api model.
+- `#[<model>_attr(...)]`: adds an attribute only for `model`.
+    - `db`: Database model.
 - `#[skip_default]`: disables the generation of the default derives.

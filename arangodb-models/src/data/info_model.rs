@@ -1,45 +1,30 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::iter::Filter;
 use std::slice::Iter;
 
 use proc_macro2::{Ident, TokenStream};
-use quote::{format_ident, quote, ToTokens, TokenStreamExt};
-use syn::{Attribute, File, Generics, Item, ItemEnum, ItemFn, ItemStruct, Visibility};
+use quote::{format_ident, ToTokens, TokenStreamExt};
+use syn::{Attribute, File, Generics, Item, ItemEnum, ItemStruct, Visibility};
 
 use crate::constants::{
-    API_DOCUMENT_PREFIX, DB_COLLECTION_SUFFIX, DB_DOCUMENT_SUFFIX, FIELDS_SUFFIX,
+    DB_COLLECTION_SUFFIX, DB_DOCUMENT_SUFFIX, DB_MODEL_NAME, DB_MODEL_TAG, FIELDS_SUFFIX,
     MUTEX_FIELD_DB_NAME,
 };
 use crate::data::{FieldInfo, ModelOptions, StructAttributes};
 use crate::errors::Error;
-
-pub const NORMALIZE_OR_REMOVE_METHOD_NAME: &str = "normalize";
-pub const NORMALIZE_FIELDS_METHOD_NAME: &str = "normalize_fields";
-pub const FILTER_METHOD_NAME: &str = "filter";
-pub const IS_VALID_FOR_SORTING: &str = "is_valid_for_sorting";
-pub const IS_VALID_FOR_FILTERING: &str = "is_valid_for_filtering";
-pub const FROM_DB_TO_API: &str = "from_db_to_api";
-pub const FROM_API_TO_DB: &str = "from_api_to_db";
+use crate::utils::from_snake_case_to_pascal_case;
 
 pub struct ModelInfo<'a> {
     pub file: &'a File,
     pub item: ModelNode<'a>,
     pub item_attributes: StructAttributes,
     pub item_fields: Vec<FieldInfo<'a>>,
-    pub replace_normalize: Option<&'a ItemFn>,
-    pub replace_normalize_fields: Option<&'a ItemFn>,
-    pub replace_filter: Option<&'a ItemFn>,
-    pub replace_api_is_valid_for_sorting: Option<&'a ItemFn>,
-    pub replace_api_is_valid_for_filtering: Option<&'a ItemFn>,
-    pub replace_api_from_db_to_api: Option<&'a ItemFn>,
-    pub replace_api_from_api_to_db: Option<&'a ItemFn>,
     // Other info
     pub document_name: Ident,
     pub collection_name: Ident,
     pub field_enum_name: Ident,
-    pub api_document_name: Ident,
-    pub api_field_enum_name: Ident,
-    pub api_paginated_context_type: TokenStream,
+    pub api_document_names: HashMap<String, Ident>,
+    pub api_field_enum_names: HashMap<String, Ident>,
 }
 
 impl<'a> ModelInfo<'a> {
@@ -71,7 +56,16 @@ impl<'a> ModelInfo<'a> {
 
         // Build other info.
         let document_name = format_ident!("{}{}", struct_item.ident, DB_DOCUMENT_SUFFIX);
-        let api_document_name = Self::compute_api_document_name(options, &document_name);
+        let api_document_names: HashMap<_, _> = options
+            .build_models
+            .iter()
+            .map(|v| {
+                (
+                    v.clone(),
+                    Self::compute_api_document_name(&document_name, v),
+                )
+            })
+            .collect();
         let collection_name = if let Some(collection_name) = &options.collection_name {
             format_ident!("{}", collection_name)
         } else {
@@ -83,18 +77,10 @@ impl<'a> ModelInfo<'a> {
             DB_DOCUMENT_SUFFIX,
             FIELDS_SUFFIX
         );
-        let api_field_enum_name = format_ident!("{}{}", api_document_name, FIELDS_SUFFIX);
-        let api_paginated_context_type =
-            if let Some(api_paginated_context_type) = &options.api_paginated_context_type {
-                let ident = format_ident!("{}", api_paginated_context_type);
-                quote! {
-                    #ident
-                }
-            } else {
-                quote! {
-                    ()
-                }
-            };
+        let api_field_enum_names = api_document_names
+            .iter()
+            .map(|(n, v)| (n.clone(), format_ident!("{}{}", v, FIELDS_SUFFIX)))
+            .collect();
 
         // Build result.
         let mut result = ModelInfo {
@@ -102,19 +88,11 @@ impl<'a> ModelInfo<'a> {
             item: ModelNode::Struct(struct_item),
             item_attributes: struct_attributes,
             item_fields: struct_fields,
-            replace_normalize: None,
-            replace_normalize_fields: None,
-            replace_filter: None,
-            replace_api_is_valid_for_sorting: None,
-            replace_api_is_valid_for_filtering: None,
-            replace_api_from_db_to_api: None,
-            replace_api_from_api_to_db: None,
             document_name,
             collection_name,
             field_enum_name,
-            api_document_name,
-            api_field_enum_name,
-            api_paginated_context_type,
+            api_document_names,
+            api_field_enum_names,
         };
 
         // Analyze rest functions.
@@ -167,19 +145,20 @@ impl<'a> ModelInfo<'a> {
         let document_name = item.ident().clone();
         let collection_name = format_ident!("undefined");
         let field_enum_name = format_ident!("{}{}", document_name, FIELDS_SUFFIX);
-        let api_document_name = Self::compute_api_document_name(options, &document_name);
-        let api_field_enum_name = format_ident!("{}{}", api_document_name, FIELDS_SUFFIX);
-        let api_paginated_context_type =
-            if let Some(api_paginated_context_type) = &options.api_paginated_context_type {
-                let ident = format_ident!("{}", api_paginated_context_type);
-                quote! {
-                    #ident
-                }
-            } else {
-                quote! {
-                    ()
-                }
-            };
+        let api_document_names: HashMap<_, _> = options
+            .build_models
+            .iter()
+            .map(|v| {
+                (
+                    v.clone(),
+                    Self::compute_api_document_name(&document_name, v),
+                )
+            })
+            .collect();
+        let api_field_enum_names = api_document_names
+            .iter()
+            .map(|(n, v)| (n.clone(), format_ident!("{}{}", v, FIELDS_SUFFIX)))
+            .collect();
 
         // Build result.
         let mut result = ModelInfo {
@@ -187,19 +166,11 @@ impl<'a> ModelInfo<'a> {
             item,
             item_attributes,
             item_fields,
-            replace_normalize: None,
-            replace_normalize_fields: None,
-            replace_filter: None,
-            replace_api_is_valid_for_sorting: None,
-            replace_api_is_valid_for_filtering: None,
-            replace_api_from_db_to_api: None,
-            replace_api_from_api_to_db: None,
             document_name,
-            api_document_name,
+            api_document_names,
             collection_name,
             field_enum_name,
-            api_field_enum_name,
-            api_paginated_context_type,
+            api_field_enum_names,
         };
 
         // Analyze rest functions.
@@ -218,29 +189,29 @@ impl<'a> ModelInfo<'a> {
             .all(|field| field.field_type_kind.is_some())
     }
 
-    pub fn check_all_api_fields_are_optional_or_properties(&self) -> bool {
-        self.fields_in_api()
-            .all(|field| field.field_type_kind.is_some())
-    }
-
     pub fn check_all_db_variants_are_unit(&self) -> bool {
         self.fields_in_db().all(|field| field.inner_type.is_none())
     }
 
-    pub fn check_all_api_variants_are_unit(&self) -> bool {
-        self.fields_in_api().all(|field| field.inner_type.is_none())
+    pub fn check_all_api_variants_are_unit(&self, model: &str) -> bool {
+        self.fields_in_model(model)
+            .iter()
+            .all(|field| field.inner_type.is_none())
     }
 
     pub fn fields_in_db(&self) -> Filter<Iter<'_, FieldInfo<'a>>, fn(&&'a FieldInfo<'a>) -> bool> {
         self.item_fields
             .iter()
-            .filter(|field| !field.attributes.skip_in_db)
+            .filter(|field| !field.attributes.skip_in_model.contains(DB_MODEL_TAG))
     }
 
-    pub fn fields_in_api(&self) -> Filter<Iter<'_, FieldInfo<'a>>, fn(&&'a FieldInfo<'a>) -> bool> {
+    pub fn fields_in_model(&self, model: &str) -> Vec<&FieldInfo<'a>> {
         self.item_fields
             .iter()
-            .filter(|field| !field.attributes.skip_in_api && field.db_name != "_key")
+            .filter(|field| {
+                !field.attributes.skip_in_model.contains(model) && field.db_name != "_key"
+            })
+            .collect()
     }
 
     pub fn get_key_field(&self) -> Option<&FieldInfo<'a>> {
@@ -274,25 +245,9 @@ impl<'a> ModelInfo<'a> {
         Ok(())
     }
 
-    fn analyze_rest_functions(&mut self, items_iter: Iter<'a, Item>) -> Result<(), syn::Error> {
-        for item in items_iter {
-            match item {
-                Item::Fn(v) => {
-                    let name = v.sig.ident.to_string();
-
-                    match name.as_str() {
-                        NORMALIZE_OR_REMOVE_METHOD_NAME => self.replace_normalize = Some(v),
-                        NORMALIZE_FIELDS_METHOD_NAME => self.replace_normalize_fields = Some(v),
-                        FILTER_METHOD_NAME => self.replace_filter = Some(v),
-                        IS_VALID_FOR_SORTING => self.replace_api_is_valid_for_sorting = Some(v),
-                        IS_VALID_FOR_FILTERING => self.replace_api_is_valid_for_filtering = Some(v),
-                        FROM_DB_TO_API => self.replace_api_from_db_to_api = Some(v),
-                        FROM_API_TO_DB => self.replace_api_from_api_to_db = Some(v),
-                        _ => return Err(Error::UnexpectedItem.with_tokens(item)),
-                    }
-                }
-                _ => return Err(Error::UnexpectedItem.with_tokens(item)),
-            }
+    fn analyze_rest_functions(&mut self, mut items_iter: Iter<'a, Item>) -> Result<(), syn::Error> {
+        if let Some(item) = items_iter.next() {
+            return Err(Error::UnexpectedItem.with_tokens(item));
         }
 
         Ok(())
@@ -300,19 +255,15 @@ impl<'a> ModelInfo<'a> {
 
     // STATIC METHODS ---------------------------------------------------------
 
-    fn compute_api_document_name(options: &ModelOptions, name: &Ident) -> Ident {
-        match &options.api_name {
-            Some(v) => v.clone(),
-            None => {
-                let db_name = name.to_string();
-                let api_name = db_name.replace("DB", "API");
+    fn compute_api_document_name(name: &Ident, model: &str) -> Ident {
+        let db_name = name.to_string();
+        let model = from_snake_case_to_pascal_case(model);
+        let api_name = db_name.replace(DB_MODEL_NAME, model.as_str());
 
-                if db_name == api_name {
-                    format_ident!("{}{}", API_DOCUMENT_PREFIX, api_name, span = name.span())
-                } else {
-                    format_ident!("{}", api_name, span = name.span())
-                }
-            }
+        if db_name == api_name {
+            format_ident!("{}{}", model, api_name, span = name.span())
+        } else {
+            format_ident!("{}", api_name, span = name.span())
         }
     }
 }

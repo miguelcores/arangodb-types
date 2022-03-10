@@ -8,8 +8,6 @@ use arcstr::ArcStr;
 use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
 
-use crate::traits::{DBNormalize, DBNormalizeResult};
-
 // Char set used to create the codes.
 // We do not use the default because it is not correctly sorted in DB.
 const ALPHABET: [char; 64] = [
@@ -113,12 +111,6 @@ impl Display for DBUuid {
 impl Default for DBUuid {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl DBNormalize for DBUuid {
-    fn normalize(&mut self) -> DBNormalizeResult {
-        DBNormalizeResult::NotModified
     }
 }
 

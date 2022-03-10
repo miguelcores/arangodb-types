@@ -5,7 +5,6 @@ use chrono::{TimeZone, Timelike, Utc};
 use serde::de::Visitor;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::traits::{DBNormalize, DBNormalizeResult};
 use crate::types::dates::DBDateTime;
 
 /// A datetime stored in DB as a UNIX seconds timestamp.
@@ -80,12 +79,6 @@ impl From<DBDateTime> for DBExpiration {
 impl From<DBExpiration> for DBDateTime {
     fn from(v: DBExpiration) -> Self {
         DBDateTime::new(v.0)
-    }
-}
-
-impl DBNormalize for DBExpiration {
-    fn normalize(&mut self) -> DBNormalizeResult {
-        DBNormalizeResult::NotModified
     }
 }
 

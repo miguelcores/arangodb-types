@@ -1,17 +1,14 @@
 use proc_macro2::TokenStream;
 use quote::ToTokens;
+use std::collections::{HashMap, HashSet};
 use syn::{Attribute, Type};
 
 use crate::utils::{
-    get_simple_name_from_meta, process_bool_literal, process_enum_literal, process_only_attribute,
-    process_string_literal,
+    get_simple_name_from_meta, process_enum_literal, process_only_attribute, process_string_literal,
 };
 
-pub const DB_ATTR_ATTRIBUTE: &str = "db_attr";
-pub const API_ATTR_ATTRIBUTE: &str = "api_attr";
-pub const SKIP_IN_DB_ATTRIBUTE: &str = "skip_in_db";
-pub const SKIP_IN_API_ATTRIBUTE: &str = "skip_in_api";
-pub const SKIP_NORMALIZE_ATTRIBUTE: &str = "skip_normalize";
+pub const ATTR_ATTRIBUTE_SUFFIX: &str = "_attr";
+pub const SKIP_IN_ATTRIBUTE_PREFIX: &str = "skip_in_";
 pub const DB_NAME_ATTRIBUTE: &str = "db_name";
 pub const INNER_MODEL_ATTRIBUTE: &str = "inner_model";
 pub static INNER_MODEL_ATTRIBUTE_NAMES: &[&str] = &["data", "struct", "enum"];
@@ -20,22 +17,16 @@ pub static INNER_MODEL_ATTRIBUTE_VALUES: &[InnerModelKind] = &[
     InnerModelKind::Struct,
     InnerModelKind::Enum,
 ];
-pub const API_INNER_TYPE_ATTRIBUTE: &str = "api_inner_type";
-pub const API_SENSIBLE_INFO_ATTRIBUTE: &str = "api_sensible_info";
-pub const API_SKIP_MAP_TO_NULL_ATTRIBUTE: &str = "api_skip_map_to_null";
+pub const INNER_TYPE_ATTRIBUTE_PREFIX: &str = "inner_type_";
 
 #[derive(Default)]
 pub struct FieldAttributes {
-    pub db: Vec<TokenStream>,
-    pub api: Vec<TokenStream>,
-    pub skip_in_db: bool,
-    pub skip_in_api: bool,
-    pub skip_normalize: bool,
+    pub attributes: Vec<TokenStream>,
+    pub attributes_by_model: HashMap<String, Vec<TokenStream>>,
+    pub skip_in_model: HashSet<String>,
     pub db_name: Option<String>,
     pub inner_model: InnerModelKind,
-    pub api_inner_type: Option<Type>,
-    pub api_sensible_info: bool,
-    pub api_skip_map_to_null: bool,
+    pub inner_type_by_model: HashMap<String, Type>,
 }
 
 impl FieldAttributes {
@@ -60,29 +51,13 @@ impl FieldAttributes {
             let name = match get_simple_name_from_meta(&meta) {
                 Some(v) => v,
                 None => {
-                    result.db.push(attribute.to_token_stream());
-                    result.api.push(attribute.to_token_stream());
+                    result.attributes.push(attribute.to_token_stream());
                     continue;
                 }
             };
             let name = name.as_str();
 
             match name {
-                DB_ATTR_ATTRIBUTE => {
-                    result.db.push(process_only_attribute(&meta, name)?);
-                }
-                API_ATTR_ATTRIBUTE => {
-                    result.api.push(process_only_attribute(&meta, name)?);
-                }
-                SKIP_IN_DB_ATTRIBUTE => {
-                    result.skip_in_db = process_bool_literal(&meta, name, Some(true))?;
-                }
-                SKIP_IN_API_ATTRIBUTE => {
-                    result.skip_in_api = process_bool_literal(&meta, name, Some(true))?;
-                }
-                SKIP_NORMALIZE_ATTRIBUTE => {
-                    result.skip_normalize = process_bool_literal(&meta, name, Some(true))?;
-                }
                 DB_NAME_ATTRIBUTE => {
                     result.db_name = Some(process_string_literal(&meta, name, None)?);
                 }
@@ -95,19 +70,42 @@ impl FieldAttributes {
                         None,
                     )?;
                 }
-                API_INNER_TYPE_ATTRIBUTE => {
-                    let value = process_string_literal(&meta, name, None)?;
-                    result.api_inner_type = Some(syn::parse_str(&value)?);
-                }
-                API_SENSIBLE_INFO_ATTRIBUTE => {
-                    result.api_sensible_info = process_bool_literal(&meta, name, Some(true))?;
-                }
-                API_SKIP_MAP_TO_NULL_ATTRIBUTE => {
-                    result.api_skip_map_to_null = process_bool_literal(&meta, name, Some(true))?;
-                }
                 _ => {
-                    result.db.push(attribute.to_token_stream());
-                    result.api.push(attribute.to_token_stream());
+                    if name.ends_with(ATTR_ATTRIBUTE_SUFFIX) {
+                        let final_name = name.trim_end_matches(ATTR_ATTRIBUTE_SUFFIX);
+                        let value = process_only_attribute(&meta, name)?;
+
+                        match result.attributes_by_model.get_mut(final_name) {
+                            Some(v) => {
+                                v.push(value);
+                            }
+                            None => {
+                                result
+                                    .attributes_by_model
+                                    .insert(final_name.to_string(), vec![value]);
+                            }
+                        }
+                        continue;
+                    }
+
+                    if name.starts_with(SKIP_IN_ATTRIBUTE_PREFIX) {
+                        let final_name = name.trim_start_matches(SKIP_IN_ATTRIBUTE_PREFIX);
+                        result.skip_in_model.insert(final_name.to_string());
+                        continue;
+                    }
+
+                    if name.starts_with(INNER_TYPE_ATTRIBUTE_PREFIX) {
+                        let final_name = name.trim_start_matches(INNER_TYPE_ATTRIBUTE_PREFIX);
+                        let value = process_string_literal(&meta, name, None)?;
+                        let value = syn::parse_str(&value)?;
+
+                        result
+                            .inner_type_by_model
+                            .insert(final_name.to_string(), value);
+                        continue;
+                    }
+
+                    result.attributes.push(attribute.to_token_stream());
                     continue;
                 }
             }

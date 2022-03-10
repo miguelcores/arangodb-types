@@ -9,6 +9,7 @@ pub mod alive_list;
 pub mod model;
 pub mod release;
 pub mod release_list;
+pub mod types;
 
 lazy_static! {
     pub static ref TEST_RWLOCK: RwLock<()> = RwLock::new(());
