@@ -87,6 +87,30 @@ impl<T> NullableOption<T> {
             NullableOption::Value(v) => NullableOption::Value(mapper(v)),
         }
     }
+
+    pub fn to_option(self) -> Option<T> {
+        match self {
+            NullableOption::Missing => None,
+            NullableOption::Null => None,
+            NullableOption::Value(v) => Some(v),
+        }
+    }
+
+    pub fn as_ref_option(&self) -> Option<&T> {
+        match self {
+            NullableOption::Missing => None,
+            NullableOption::Null => None,
+            NullableOption::Value(v) => Some(v),
+        }
+    }
+
+    pub fn as_mut_ref_option(&mut self) -> Option<&mut T> {
+        match self {
+            NullableOption::Missing => None,
+            NullableOption::Null => None,
+            NullableOption::Value(v) => Some(v),
+        }
+    }
 }
 
 impl<T: DBNormalize> DBNormalize for NullableOption<T> {
