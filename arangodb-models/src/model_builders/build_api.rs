@@ -23,7 +23,7 @@ pub fn build_api_model(
         build_api_fields(model, options, info, false, &fields_in_model, imports)?;
 
     let impl_tokens = if !options.skip_impl {
-        build_api_document_impl(model, options, info, imports)?
+        build_api_document_impl(model, options, info, &fields_in_model, imports)?
     } else {
         quote! {}
     };
@@ -558,11 +558,79 @@ fn build_api_document_impl(
     model: &str,
     _options: &ModelOptions,
     info: &ModelInfo,
+    fields_in_model: &[&FieldInfo],
     imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
     let api_document_name = &info.api_document_names.get(model);
 
     imports.insert("::arangodb_types::traits::APIDocument".to_string());
+
+    // Evaluate map_to_null.
+    let map_to_null_fields = fields_in_model.iter().filter_map(|field| {
+        let name = field.name();
+
+        match field.attributes.inner_model {
+            InnerModelKind::Data => match field.field_type_kind {
+                Some(FieldTypeKind::NullableOption) => Some(quote! {
+                    if self.#name.is_value() {
+                        self.#name = NullableOption::Null;
+                    }
+                }),
+                Some(FieldTypeKind::Option) => Some(quote! {
+                    self.#name = None;
+                }),
+                None => None,
+            },
+            InnerModelKind::Struct | InnerModelKind::Enum => {
+                let base = match field.base_type_kind {
+                    BaseTypeKind::Other | BaseTypeKind::Box => Some(quote! {
+                        v.map_values_to_null();
+                    }),
+                    BaseTypeKind::Vec => Some(quote! {
+                        for v in v {
+                            v.map_values_to_null();
+                        }
+                    }),
+                    BaseTypeKind::VecDBReference => {
+                        panic!("Cannot declare a VecDBReference value as Struct or Enum model")
+                    }
+                    BaseTypeKind::HashMap => Some(quote! {
+                        for (_, v) in v {
+                            v.map_values_to_null();
+                        }
+                    }),
+                    BaseTypeKind::DBReference => {
+                        panic!("Cannot declare a DBReference value as Struct or Enum model")
+                    }
+                };
+
+                match field.field_type_kind {
+                    Some(FieldTypeKind::NullableOption) => base.map(|base| {
+                        quote! {
+                            if let NullableOption::Value(v) = &mut self.#name {
+                                #base
+                            }
+                        }
+                    }),
+                    Some(FieldTypeKind::Option) => base.map(|base| {
+                        quote! {
+                            if let Some(v) = &mut self.#name {
+                                #base
+                            }
+                        }
+                    }),
+                    None => base.map(|base| {
+                        quote! {
+                            {
+                                let v = &mut self.#name;
+                                #base
+                            }
+                        }
+                    }),
+                }
+            }
+        }
+    });
 
     // Build result.
     let key_field = info.get_key_field().unwrap();
@@ -578,6 +646,12 @@ fn build_api_document_impl(
 
             fn id(&self) -> &Option<Self::Id> {
                 &self.id
+            }
+
+            // METHODS --------------------------------------------------------
+
+            fn map_values_to_null(&mut self) {
+                #(#map_to_null_fields)*
             }
         }
     })
