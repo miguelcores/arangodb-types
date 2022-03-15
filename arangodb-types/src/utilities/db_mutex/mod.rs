@@ -11,19 +11,20 @@ use tokio::time::sleep;
 pub use errors::*;
 
 use crate::aql::{
-    AQL_DOCUMENT_ID, AQL_NEW_ID, AqlBuilder, AqlLet, AqlLetKind, AqlLimit, AqlReturn, AqlSort,
-    AqlUpdate,
+    AqlBuilder, AqlLet, AqlLetKind, AqlLimit, AqlReturn, AqlSort, AqlUpdate, AQL_DOCUMENT_ID,
+    AQL_NEW_ID,
 };
 use crate::constants::{
     MUTEX_ACQUIRE_MAX_INTERVAL, MUTEX_ACQUIRE_MIN_INTERVAL, MUTEX_ALIVE_INTERVAL, MUTEX_EXPIRATION,
 };
 use crate::documents::DBDocumentField;
 use crate::traits::{DBCollection, DBSynchronizedDocument};
-use crate::types::{DBMutex, DBMutexField, DBUuid, NullableOption};
 use crate::types::dates::DBDateTime;
+use crate::types::{DBMutex, DBMutexField, DBUuid, NullableOption};
 
 mod errors;
 
+#[derive(Clone)]
 pub struct DBMutexGuard<T: 'static + DBSynchronizedDocument<'static>> {
     inner: Arc<Mutex<BDMutexGuardInner<T>>>,
 }
@@ -88,7 +89,8 @@ impl<T: 'static + DBSynchronizedDocument<'static>> DBMutexGuard<T> {
             }
 
             // Prepare filter.
-            let (mut list, mutex) = Self::acquire_list(&[key.clone()], node_id, fields, collection).await?;
+            let (mut list, mutex) =
+                Self::acquire_list(&[key.clone()], node_id, fields, collection).await?;
 
             let value = list.pop().unwrap();
 
@@ -164,13 +166,14 @@ impl<T: 'static + DBSynchronizedDocument<'static>> DBMutexGuard<T> {
                         // Launch alive action.
                         {
                             let mut lock = guard.inner.lock().await;
-                            lock.alive_job = Some(tokio::spawn(Self::alive_action(guard.inner.clone())));
+                            lock.alive_job =
+                                Some(tokio::spawn(Self::alive_action(guard.inner.clone())));
                         }
 
                         Ok((final_document, guard))
                     }
                     DBMutexError::Timeout => Err(DBMutexError::Timeout),
-                    DBMutexError::Other(e) => Err(DBMutexError::Other(e))
+                    DBMutexError::Other(e) => Err(DBMutexError::Other(e)),
                 }
             }
         }
@@ -228,7 +231,8 @@ impl<T: 'static + DBSynchronizedDocument<'static>> DBMutexGuard<T> {
                 mutex_path,
                 DBMutexField::Expiration(None).path(),
                 serde_json::to_string(&now).unwrap()
-            ).into(),
+            )
+            .into(),
         );
         aql.update_step(
             AqlUpdate::new(
@@ -243,8 +247,10 @@ impl<T: 'static + DBSynchronizedDocument<'static>> DBMutexGuard<T> {
                     serde_json::to_string(&expiration).unwrap(),
                     DBMutexField::ChangeFlag(None).path(),
                     serde_json::to_string(&change_flag).unwrap()
-                ).into(),
-            ).apply_ignore_errors(true),
+                )
+                .into(),
+            )
+            .apply_ignore_errors(true),
         );
 
         if let Some(fields) = fields {
@@ -254,10 +260,14 @@ impl<T: 'static + DBSynchronizedDocument<'static>> DBMutexGuard<T> {
         }
 
         let result = collection.send_generic_aql::<Option<T>>(&aql).await?;
-        let result_ids = result.results.iter().filter_map(|v| match v {
-            Some(v) => v.db_key().clone(),
-            None => None,
-        }).collect();
+        let result_ids = result
+            .results
+            .iter()
+            .filter_map(|v| match v {
+                Some(v) => v.db_key().clone(),
+                None => None,
+            })
+            .collect();
 
         let guard = Self {
             inner: Arc::new(Mutex::new(BDMutexGuardInner {
@@ -336,7 +346,8 @@ impl<T: 'static + DBSynchronizedDocument<'static>> DBMutexGuard<T> {
                 mutex_path,
                 DBMutexField::Expiration(None).path(),
                 serde_json::to_string(&now).unwrap()
-            ).into(),
+            )
+            .into(),
         );
 
         if let Some(sort) = sort {
@@ -359,8 +370,10 @@ impl<T: 'static + DBSynchronizedDocument<'static>> DBMutexGuard<T> {
                     serde_json::to_string(&expiration).unwrap(),
                     DBMutexField::ChangeFlag(None).path(),
                     serde_json::to_string(&change_flag).unwrap()
-                ).into(),
-            ).apply_ignore_errors(true),
+                )
+                .into(),
+            )
+            .apply_ignore_errors(true),
         );
         aql.filter_step(format!("{} != null", AQL_NEW_ID).into());
 
@@ -371,7 +384,11 @@ impl<T: 'static + DBSynchronizedDocument<'static>> DBMutexGuard<T> {
         }
 
         let result = collection.send_generic_aql::<T>(&aql).await?;
-        let result_ids = result.results.iter().map(|v| v.db_key().as_ref().unwrap().clone()).collect();
+        let result_ids = result
+            .results
+            .iter()
+            .map(|v| v.db_key().as_ref().unwrap().clone())
+            .collect();
 
         let guard = Self {
             inner: Arc::new(Mutex::new(BDMutexGuardInner {
@@ -447,13 +464,16 @@ impl<T: 'static + DBSynchronizedDocument<'static>> DBMutexGuard<T> {
     pub async fn pop(&mut self, keys: &[T::Key]) -> Option<DBMutexGuard<T>> {
         let mut lock = self.inner.lock().await;
 
-        let new_elements = keys.iter().filter_map(|key| {
-            if lock.elements.remove(key) {
-                Some(key.clone())
-            } else {
-                None
-            }
-        }).collect::<HashSet<_>>();
+        let new_elements = keys
+            .iter()
+            .filter_map(|key| {
+                if lock.elements.remove(key) {
+                    Some(key.clone())
+                } else {
+                    None
+                }
+            })
+            .collect::<HashSet<_>>();
 
         // Abort alive job if empty.
         if lock.elements.is_empty() {
@@ -552,7 +572,8 @@ impl<T: 'static + DBSynchronizedDocument<'static>> DBMutexGuard<T> {
                     mutex_path,
                     DBMutexField::ChangeFlag(None).path(),
                     serde_json::to_string(&lock.change_flag).unwrap(),
-                ).into(),
+                )
+                .into(),
             );
             aql.update_step(
                 AqlUpdate::new_document(
@@ -562,8 +583,10 @@ impl<T: 'static + DBSynchronizedDocument<'static>> DBMutexGuard<T> {
                         mutex_path,
                         DBMutexField::Expiration(None).path(),
                         serde_json::to_string(&expiration).unwrap(),
-                    ).into(),
-                ).apply_ignore_errors(true),
+                    )
+                    .into(),
+                )
+                .apply_ignore_errors(true),
             );
             aql.filter_step(format!("{} != null", AQL_NEW_ID).into());
             aql.return_step(AqlReturn::new_document());
@@ -639,13 +662,15 @@ impl<T: 'static + DBSynchronizedDocument<'static>> DBMutexGuard<T> {
                 mutex_path,
                 DBMutexField::ChangeFlag(None).path(),
                 serde_json::to_string(&lock.change_flag).unwrap(),
-            ).into(),
+            )
+            .into(),
         );
         aql.update_step(
             AqlUpdate::new_document(
                 collection_name,
                 format!("{{ {}: null }}", mutex_path).into(),
-            ).apply_ignore_errors(true),
+            )
+            .apply_ignore_errors(true),
         );
         aql.filter_step(format!("{} != null", AQL_NEW_ID).into());
         aql.return_step(AqlReturn::new_document());
@@ -691,7 +716,7 @@ impl<T: 'static + DBSynchronizedDocument<'static>> DBMutexGuard<T> {
                 DBMutexField::Node(None).path(),
                 serde_json::to_string(node_id).unwrap(),
             )
-                .into(),
+            .into(),
         );
         aql.update_step(
             AqlUpdate::new(
@@ -699,7 +724,7 @@ impl<T: 'static + DBSynchronizedDocument<'static>> DBMutexGuard<T> {
                 collection_name,
                 format!("{{ {}: null }}", mutex_path).into(),
             )
-                .apply_ignore_errors(true),
+            .apply_ignore_errors(true),
         );
 
         if let Err(e) = collection.send_generic_aql::<DBUuid>(&aql).await {
