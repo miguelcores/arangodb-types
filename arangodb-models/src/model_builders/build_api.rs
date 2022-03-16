@@ -561,6 +561,7 @@ fn build_api_document_impl(
     fields_in_model: &[&FieldInfo],
     imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
+    let generics = info.item.generics();
     let api_document_name = &info.api_document_names.get(model);
 
     imports.insert("::arangodb_types::traits::APIDocument".to_string());
@@ -639,7 +640,7 @@ fn build_api_document_impl(
         .map(|v| v.to_token_stream())
         .unwrap_or_else(|| key_field.inner_type.clone().unwrap());
     Ok(quote! {
-        impl APIDocument for #api_document_name {
+        impl #generics APIDocument for #api_document_name #generics {
             type Id = #key_type;
 
             // GETTERS --------------------------------------------------------
@@ -647,10 +648,10 @@ fn build_api_document_impl(
             fn id(&self) -> &Option<Self::Id> {
                 &self.id
             }
+        }
 
-            // METHODS --------------------------------------------------------
-
-            fn map_values_to_null(&mut self) {
+        impl #generics #api_document_name #generics {
+            pub fn map_values_to_null(&mut self) {
                 #(#map_to_null_fields)*
             }
         }
