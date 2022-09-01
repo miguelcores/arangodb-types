@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use crate::constants::DB_MODEL_TAG;
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -12,24 +10,23 @@ use crate::model_builders::{build_db_struct_aql_mapping_impl, build_db_struct_fi
 pub fn build_db_struct_type(
     options: &ModelOptions,
     info: &ModelInfo,
-    imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
     let fields_in_db: Vec<_> = info.fields_in_db().collect();
-    let struct_tokens = build_struct(options, info, &fields_in_db, imports)?;
+    let struct_tokens = build_struct(options, info, &fields_in_db)?;
     let impl_tokens = if !options.skip_impl {
-        build_impl(options, info, &fields_in_db, imports)?
+        build_impl(options, info, &fields_in_db)?
     } else {
         quote! {}
     };
 
     let field_list_tokens = if !options.skip_fields {
-        build_db_struct_field_list(options, info, &fields_in_db, imports)?
+        build_db_struct_field_list(options, info, &fields_in_db)?
     } else {
         quote! {}
     };
 
     let aql_mapping_impl_tokens =
-        build_db_struct_aql_mapping_impl(options, info, true, &fields_in_db, imports)?;
+        build_db_struct_aql_mapping_impl(options, info, true, &fields_in_db)?;
 
     // Build result.
     Ok(quote! {
@@ -48,7 +45,6 @@ fn build_struct(
     _options: &ModelOptions,
     info: &ModelInfo,
     fields_in_db: &[&FieldInfo],
-    imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
     let visibility = info.item.visibility();
     let generics = info.item.generics();
@@ -56,9 +52,6 @@ fn build_struct(
 
     let all_fields_are_optional_or_db_properties =
         info.check_all_db_fields_are_optional_or_properties();
-
-    imports.insert("::serde::Deserialize".to_string());
-    imports.insert("::serde::Serialize".to_string());
 
     // Evaluate default attribute.
     let default_attribute =
@@ -78,7 +71,7 @@ fn build_struct(
         let name = field.name();
         let db_name = &field.db_name;
         let field_type = field.build_db_field_type();
-        let deserialize_with = field.build_field_deserialize_with(imports);
+        let deserialize_with = field.build_field_deserialize_with();
 
         let attributes = &field.attributes.attributes;
         let attribute_list = field.attributes.attributes_by_model.get(DB_MODEL_TAG);
@@ -116,7 +109,7 @@ fn build_struct(
 
     // Build result.
     Ok(quote! {
-        #[derive(Debug, Clone, Serialize, Deserialize)]
+        #[derive(Debug, Clone, ::serde::Serialize, ::serde::Deserialize)]
         #[serde(rename_all = "camelCase")]
         #default_attribute
         #attributes
@@ -134,7 +127,6 @@ fn build_impl(
     _options: &ModelOptions,
     info: &ModelInfo,
     fields_in_db: &[&FieldInfo],
-    imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
     let generics = info.item.generics();
     let document_name = &info.document_name;
@@ -263,15 +255,13 @@ fn build_impl(
     };
 
     // Evaluate all null method.
-    imports.insert("::arangodb_types::types::NullableOption".to_string());
-
     let all_null_method_tokens = if all_fields_are_optional_or_db_properties {
         let null_field_list = fields_in_db.iter().filter_map(|field| {
             let name = field.name();
 
             match field.field_type_kind {
                 Some(FieldTypeKind::NullableOption) => Some(quote! {
-                    #name: NullableOption::Null
+                    #name: ::arangodb_types::types::NullableOption::Null
                 }),
                 Some(FieldTypeKind::Option) => Some(quote! {
                     #name: None
@@ -302,7 +292,7 @@ fn build_impl(
                 InnerModelKind::Data => match field.field_type_kind {
                     Some(FieldTypeKind::NullableOption) => Some(quote! {
                         if self.#name.is_value() {
-                            self.#name = NullableOption::Null;
+                            self.#name = ::arangodb_types::types::NullableOption::Null;
                         }
                     }),
                     Some(FieldTypeKind::Option) => Some(quote! {
@@ -336,7 +326,7 @@ fn build_impl(
                     match field.field_type_kind {
                         Some(FieldTypeKind::NullableOption) => base.map(|base| {
                             quote! {
-                                if let NullableOption::Value(v) = &mut self.#name {
+                                if let ::arangodb_types::types::NullableOption::Value(v) = &mut self.#name {
                                     #base
                                 }
                             }

@@ -1,16 +1,10 @@
-use std::borrow::Cow;
-
-use arcstr::ArcStr;
-use serde::{Deserialize, Serialize};
-
-use arangodb_models::type_model;
-
 use crate::traits::AQLMapping;
-use crate::types::dates::DBDateTime;
-use crate::types::DBUuid;
+use crate::types::{DBDateTime, DBUuid};
+use arangodb_models::type_model;
+use arcstr::ArcStr;
 
 type_model!(
-    #![no_imports]
+    #![relative_imports]
 
     /// This type stores a mutex for a document.
     pub struct DBMutex {

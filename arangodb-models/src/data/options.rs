@@ -8,7 +8,7 @@ use crate::utils::{
     get_simple_name_from_meta, process_bool_literal, process_enum_literal, process_string_literal,
 };
 
-pub const NO_IMPORTS_ATTRIBUTE: &str = "no_imports";
+pub const RELATIVE_IMPORTS_ATTRIBUTE: &str = "relative_imports";
 pub const BUILD_ATTRIBUTE_PREFIX: &str = "build_";
 pub const SKIP_IMPL_ATTRIBUTE: &str = "skip_impl";
 pub const SKIP_FIELDS_ATTRIBUTE: &str = "skip_fields";
@@ -22,7 +22,7 @@ pub const COLLECTION_KIND_ATTRIBUTE: &str = "collection_kind";
 
 #[derive(Default)]
 pub struct ModelOptions {
-    pub no_imports: bool,
+    pub relative_imports: bool,
     pub build_models: HashSet<String>,
     pub skip_impl: bool,
     pub skip_fields: bool,
@@ -53,8 +53,8 @@ impl ModelOptions {
             let name = name.as_str();
 
             match name {
-                NO_IMPORTS_ATTRIBUTE => {
-                    result.no_imports = process_bool_literal(&meta, name, Some(true))?;
+                RELATIVE_IMPORTS_ATTRIBUTE => {
+                    result.relative_imports = process_bool_literal(&meta, name, Some(true))?;
                 }
                 SKIP_IMPL_ATTRIBUTE => {
                     result.skip_impl = process_bool_literal(&meta, name, Some(true))?;

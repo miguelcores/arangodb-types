@@ -15,9 +15,6 @@ serde = "1.0.144"
 serde_json = "1.0.85"
 tokio = { version = "1.20.1", features = ["sync", "time", "rt-multi-thread", "macros"] }
 
-[dependencies.arangodb-models]
-path = "../arangodb-models"
-
 [dependencies.arangodb-types]
 path = "../arangodb-types"
 features = ["test", "db_mutex"]

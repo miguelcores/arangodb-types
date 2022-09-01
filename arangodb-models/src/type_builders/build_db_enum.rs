@@ -2,7 +2,6 @@ use crate::constants::DB_MODEL_TAG;
 use proc_macro2::TokenStream;
 use quote::format_ident;
 use quote::quote;
-use std::collections::HashSet;
 use syn::spanned::Spanned;
 
 use crate::data::{FieldInfo, InnerModelKind, ModelInfo, ModelOptions};
@@ -11,23 +10,22 @@ use crate::utils::from_pascal_case_to_snake_case;
 pub fn build_db_enum_type(
     options: &ModelOptions,
     info: &ModelInfo,
-    imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
     let fields_in_db: Vec<_> = info.fields_in_db().collect();
-    let enum_tokens = build_enum(options, info, &fields_in_db, imports)?;
+    let enum_tokens = build_enum(options, info, &fields_in_db)?;
     let impl_tokens = if !options.skip_impl {
-        build_impl(options, info, &fields_in_db, imports)?
+        build_impl(options, info, &fields_in_db)?
     } else {
         quote! {}
     };
 
     let field_list_tokens = if !options.skip_fields {
-        build_field_list(options, info, &fields_in_db, imports)?
+        build_field_list(options, info, &fields_in_db)?
     } else {
         quote! {}
     };
 
-    let aql_mapping_impl_tokens = build_aql_mapping_impl(options, info, &fields_in_db, imports)?;
+    let aql_mapping_impl_tokens = build_aql_mapping_impl(options, info, &fields_in_db)?;
 
     // Build result.
     Ok(quote! {
@@ -46,7 +44,6 @@ fn build_enum(
     _options: &ModelOptions,
     info: &ModelInfo,
     fields_in_db: &[&FieldInfo],
-    imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
     let visibility = info.item.visibility();
     let generics = info.item.generics();
@@ -122,12 +119,9 @@ fn build_enum(
         }
     };
 
-    imports.insert("::serde::Deserialize".to_string());
-    imports.insert("::serde::Serialize".to_string());
-
     // Build result.
     Ok(quote! {
-        #[derive(Debug, Clone, Serialize, Deserialize)]
+        #[derive(Debug, Clone, ::serde::Serialize, ::serde::Deserialize)]
         #simple_attributes
         #[serde(rename_all = "camelCase")]
         #serde_tag_attribute
@@ -146,7 +140,6 @@ fn build_impl(
     _options: &ModelOptions,
     info: &ModelInfo,
     fields_in_db: &[&FieldInfo],
-    _imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
     let generics = info.item.generics();
     let document_name = &info.document_name;
@@ -233,7 +226,6 @@ fn build_field_list(
     _options: &ModelOptions,
     info: &ModelInfo,
     fields_in_db: &[&FieldInfo],
-    _imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
     let generics = info.item.generics();
     let document_name = &info.document_name;
@@ -257,7 +249,7 @@ fn build_field_list(
                 #name(Option<()>),
             });
             field_paths.push(quote! {
-                #enum_name::#name(_) => Cow::Borrowed(#db_name),
+                #enum_name::#name(_) => ::std::borrow::Cow::Borrowed(#db_name),
             });
             get_variant_list.push(quote! {
                 #document_name::#name => #enum_name::#name(None),
@@ -275,7 +267,7 @@ fn build_field_list(
                         #name(Option<()>),
                     });
                     field_paths.push(quote! {
-                        #enum_name::#name(_) => Cow::Borrowed(#db_name),
+                        #enum_name::#name(_) => ::std::borrow::Cow::Borrowed(#db_name),
                     });
                     get_variant_list.push(quote! {
                         #document_name::#name(_) => #enum_name::#name(None),
@@ -293,9 +285,9 @@ fn build_field_list(
                     });
                     field_paths.push(quote! {
                         #enum_name::#name(v) => if let Some(v) = v {
-                            Cow::Owned(format!("V.{}", v.path()))
+                            ::std::borrow::Cow::Owned(format!("V.{}", v.path()))
                         } else {
-                            Cow::Borrowed(#db_name)
+                            ::std::borrow::Cow::Borrowed(#db_name)
                         },
                     });
                     get_variant_list.push(quote! {
@@ -314,9 +306,9 @@ fn build_field_list(
                     });
                     field_paths.push(quote! {
                         #enum_name::#name(v) => if let Some(v) = v {
-                            Cow::Owned(format!("V.{}", v.path()))
+                            ::std::borrow::Cow::Owned(format!("V.{}", v.path()))
                         } else {
-                            Cow::Borrowed(#db_name)
+                            ::std::borrow::Cow::Borrowed(#db_name)
                         },
                     });
                     get_variant_list.push(quote! {
@@ -337,7 +329,7 @@ fn build_field_list(
             }
         }
 
-        #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+        #[derive(Debug, Clone, Eq, PartialEq, Hash, ::serde::Serialize, ::serde::Deserialize)]
         #[serde(rename_all = "camelCase")]
         #[serde(tag = "T", content = "V")]
         #visibility enum #enum_name {
@@ -351,10 +343,10 @@ fn build_field_list(
         }
 
         impl #enum_name {
-            pub fn path(&self) -> Cow<'static, str> {
+            pub fn path(&self) -> ::std::borrow::Cow<'static, str> {
                 match self {
-                    #enum_name::TypeField(_) => Cow::Borrowed("T"),
-                    #enum_name::ValueField(_) => Cow::Borrowed("V"),
+                    #enum_name::TypeField(_) => ::std::borrow::Cow::Borrowed("T"),
+                    #enum_name::ValueField(_) => ::std::borrow::Cow::Borrowed("V"),
                     #(#field_paths)*
                 }
             }
@@ -367,10 +359,9 @@ fn build_field_list(
 // ----------------------------------------------------------------------------
 
 fn build_aql_mapping_impl(
-    _options: &ModelOptions,
+    options: &ModelOptions,
     info: &ModelInfo,
     fields_in_db: &[&FieldInfo],
-    imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
     let generics = info.item.generics();
     let document_name = &info.document_name;
@@ -397,11 +388,9 @@ fn build_aql_mapping_impl(
             }
         });
 
-        imports.insert("::arangodb_types::aql::AqlBuilder".to_string());
-
         quote! {
             #[allow(unused_variables)]
-            fn include_let_steps(&self, aql: &mut AqlBuilder, path: &str, next_id: &mut usize) {
+            fn include_let_steps(&self, aql: &mut ::arangodb_types::aql::AqlBuilder, path: &str, next_id: &mut usize) {
                 let sub_path = format!("{}.V", path);
 
                 match self {
@@ -462,10 +451,14 @@ fn build_aql_mapping_impl(
         }
     };
 
-    imports.insert("::arangodb_types::traits::AQLMapping".to_string());
+    let impl_name = if options.relative_imports {
+        quote!(AQLMapping)
+    } else {
+        quote!(::arangodb_types::traits::AQLMapping)
+    };
 
     Ok(quote! {
-        impl #generics AQLMapping for #document_name #generics {
+        impl #generics #impl_name for #document_name #generics {
             #include_let_steps_method
             #map_to_json_method
         }

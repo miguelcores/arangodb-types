@@ -1,5 +1,4 @@
-use arangodb_models::type_model;
-use arangodb_types::aql::AqlBuilder;
+use arangodb_types::models::type_model;
 
 type_model!(
     #![build_api]
@@ -18,7 +17,6 @@ type_model!(
 // ----------------------------------------------------------------------------
 
 type_model!(
-    #![no_imports]
     #![build_api]
 
     pub enum TestSimpleEnum {
@@ -36,7 +34,6 @@ type_model!(
 // ----------------------------------------------------------------------------
 
 type_model!(
-    #![no_imports]
     #![build_api]
 
     pub enum TestComplexEnum {

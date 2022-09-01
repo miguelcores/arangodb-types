@@ -5,8 +5,7 @@ use arangodb_types::types::{DBUuid, NullableOption};
 use arangodb_types::utilities::DBMutexGuard;
 
 use crate::tests::constants::NODE_ID;
-use crate::tests::db_mutex::model::MutexDBDocument;
-use crate::tests::db_mutex::model::MutexDBDocumentField;
+use crate::tests::db_mutex::model::{MutexDBDocument, MutexDBDocumentField};
 use crate::tests::db_mutex::TEST_RWLOCK;
 use crate::tests::init_db_connection;
 

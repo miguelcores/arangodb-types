@@ -1,9 +1,8 @@
 use std::fmt::Formatter;
 use std::sync::Arc;
 
-use arcstr::ArcStr;
+use arangodb_types::models::model;
 
-use arangodb_models::model;
 use arangodb_types::traits::DBCollection;
 use arangodb_types::types::DBInfo;
 use arangodb_types::types::DBUuid;

@@ -19,8 +19,7 @@ use crate::constants::{
 };
 use crate::documents::DBDocumentField;
 use crate::traits::{DBCollection, DBSynchronizedDocument};
-use crate::types::dates::DBDateTime;
-use crate::types::{DBMutex, DBMutexField, DBUuid, NullableOption};
+use crate::types::{DBDateTime, DBMutex, DBMutexField, DBUuid, NullableOption};
 
 mod errors;
 

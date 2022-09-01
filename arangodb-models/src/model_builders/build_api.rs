@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use crate::constants::DB_MODEL_TAG;
 use proc_macro2::TokenStream;
 use quote::format_ident;
@@ -14,16 +12,14 @@ pub fn build_api_model(
     model: &str,
     options: &ModelOptions,
     info: &ModelInfo,
-    imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
     let fields_in_model = info.fields_in_model(model);
-    let struct_tokens = build_api_struct(model, options, info, false, &fields_in_model, imports)?;
-    let from_to_tokens = build_from_to(model, options, info, false, &fields_in_model, imports)?;
-    let api_fields_tokens =
-        build_api_fields(model, options, info, false, &fields_in_model, imports)?;
+    let struct_tokens = build_api_struct(model, options, info, false, &fields_in_model)?;
+    let from_to_tokens = build_from_to(model, options, info, false, &fields_in_model)?;
+    let api_fields_tokens = build_api_fields(model, options, info, false, &fields_in_model)?;
 
     let impl_tokens = if !options.skip_impl {
-        build_api_document_impl(model, options, info, &fields_in_model, imports)?
+        build_api_document_impl(model, options, info, &fields_in_model)?
     } else {
         quote! {}
     };
@@ -47,7 +43,6 @@ pub fn build_api_struct(
     info: &ModelInfo,
     is_sub_model: bool,
     fields_in_model: &[&FieldInfo],
-    imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
     let visibility = info.item.visibility();
     let generics = info.item.generics();
@@ -55,9 +50,6 @@ pub fn build_api_struct(
 
     let all_fields_are_optional_or_db_properties =
         info.check_all_db_fields_are_optional_or_properties();
-
-    imports.insert("::serde::Deserialize".to_string());
-    imports.insert("::serde::Serialize".to_string());
 
     // Evaluate default attribute.
     let default_attribute =
@@ -76,7 +68,7 @@ pub fn build_api_struct(
         let visibility = &node.vis;
         let name = field.name();
         let field_type = field.build_api_field_type(model);
-        let deserialize_with = field.build_field_deserialize_with(imports);
+        let deserialize_with = field.build_field_deserialize_with();
 
         let attributes = &field.attributes.attributes;
         let attribute_list = field.attributes.attributes_by_model.get(model);
@@ -141,7 +133,7 @@ pub fn build_api_struct(
 
     // Build result.
     Ok(quote! {
-        #[derive(Debug, Clone, Serialize, Deserialize)]
+        #[derive(Debug, Clone, ::serde::Serialize, ::serde::Deserialize)]
         #[serde(rename_all = "camelCase")]
         #default_attribute
         #attributes
@@ -163,7 +155,6 @@ pub fn build_from_to(
     info: &ModelInfo,
     is_sub_model: bool,
     fields_in_model: &[&FieldInfo],
-    _imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
     let generics = info.item.generics();
     let document_name = &info.document_name;
@@ -441,7 +432,6 @@ pub fn build_api_fields(
     info: &ModelInfo,
     is_sub_model: bool,
     fields_in_model: &[&FieldInfo],
-    _imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
     let visibility = info.item.visibility();
     let api_field_enum_name = &info.api_field_enum_names.get(model).unwrap();
@@ -531,7 +521,7 @@ pub fn build_api_fields(
 
     // Build result.
     Ok(quote! {
-        #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+        #[derive(Debug, Clone, Eq, PartialEq, Hash, ::serde::Serialize, ::serde::Deserialize)]
         #[serde(rename_all = "camelCase")]
         #[serde(tag = "T", content = "V")]
         #visibility enum #api_field_enum_name {
@@ -540,7 +530,7 @@ pub fn build_api_fields(
         }
 
         impl #api_field_enum_name {
-            pub fn path(&self) -> Cow<'static, str> {
+            pub fn path(&self) -> ::std::borrow::Cow<'static, str> {
                 match self {
                     #id_field_path
                     #(#path_fields)*
@@ -559,12 +549,9 @@ fn build_api_document_impl(
     _options: &ModelOptions,
     info: &ModelInfo,
     fields_in_model: &[&FieldInfo],
-    imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
     let generics = info.item.generics();
     let api_document_name = &info.api_document_names.get(model);
-
-    imports.insert("::arangodb_types::traits::APIDocument".to_string());
 
     // Evaluate map_to_null.
     let map_to_null_fields = fields_in_model.iter().filter_map(|field| {
@@ -640,7 +627,7 @@ fn build_api_document_impl(
         .map(|v| v.to_token_stream())
         .unwrap_or_else(|| key_field.inner_type.clone().unwrap());
     Ok(quote! {
-        impl #generics APIDocument for #api_document_name #generics {
+        impl #generics ::arangodb_types::traits::APIDocument for #api_document_name #generics {
             type Id = #key_type;
 
             // GETTERS --------------------------------------------------------

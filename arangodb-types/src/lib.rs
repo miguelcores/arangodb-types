@@ -1,5 +1,5 @@
 // Re-export models.
-pub use arangodb_models;
+pub use arangodb_models as models;
 
 pub mod aql;
 pub mod constants;

@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use proc_macro2::TokenStream;
 use quote::format_ident;
 use quote::quote;
@@ -12,11 +10,7 @@ use crate::data::{
 use crate::errors::Error;
 use crate::utils::from_snake_case_to_pascal_case;
 
-pub fn build_db_model(
-    options: &ModelOptions,
-    info: &ModelInfo,
-    imports: &mut HashSet<String>,
-) -> Result<TokenStream, syn::Error> {
+pub fn build_db_model(options: &ModelOptions, info: &ModelInfo) -> Result<TokenStream, syn::Error> {
     let fields_in_db: Vec<_> = info.fields_in_db().collect();
 
     // Check key field exists.
@@ -26,11 +20,10 @@ pub fn build_db_model(
         return Err(Error::MissingKeyField.with_tokens(info.file));
     }
 
-    let struct_tokens = build_struct(options, info, &fields_in_db, imports)?;
+    let struct_tokens = build_struct(options, info, &fields_in_db)?;
     let impl_tokens = if !options.skip_impl {
-        let impl_tokens = build_impl(options, info, &fields_in_db, imports)?;
-        let db_document_impl_tokens =
-            build_db_document_impl(options, info, &fields_in_db, imports)?;
+        let impl_tokens = build_impl(options, info, &fields_in_db)?;
+        let db_document_impl_tokens = build_db_document_impl(options, info, &fields_in_db)?;
         quote! {
             #impl_tokens
             #db_document_impl_tokens
@@ -40,21 +33,20 @@ pub fn build_db_model(
     };
 
     let field_list_tokens = if !options.skip_fields {
-        build_db_struct_field_list(options, info, &fields_in_db, imports)?
+        build_db_struct_field_list(options, info, &fields_in_db)?
     } else {
         quote! {}
     };
 
     let sync_impl_tokens = if options.sync_level.is_active() {
-        build_sync_impl(options, info, imports)?
+        build_sync_impl(options, info)?
     } else {
         quote! {}
     };
 
-    let edge_db_document_impl_tokens =
-        check_and_build_edge_db_impl(options, info, &fields_in_db, imports)?;
+    let edge_db_document_impl_tokens = check_and_build_edge_db_impl(options, info, &fields_in_db)?;
     let aql_mapping_impl_tokens =
-        build_db_struct_aql_mapping_impl(options, info, false, &fields_in_db, imports)?;
+        build_db_struct_aql_mapping_impl(options, info, false, &fields_in_db)?;
 
     // Build result.
     Ok(quote! {
@@ -75,7 +67,6 @@ fn build_struct(
     options: &ModelOptions,
     info: &ModelInfo,
     fields_in_db: &[&FieldInfo],
-    imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
     let visibility = info.item.visibility();
     let generics = info.item.generics();
@@ -83,9 +74,6 @@ fn build_struct(
 
     let all_fields_are_optional_or_db_properties =
         info.check_all_db_fields_are_optional_or_properties();
-
-    imports.insert("::serde::Deserialize".to_string());
-    imports.insert("::serde::Serialize".to_string());
 
     // Evaluate default attribute.
     let default_attribute =
@@ -103,12 +91,10 @@ fn build_struct(
         let name = format_ident!("{}", MUTEX_FIELD_NAME);
         let db_name = MUTEX_FIELD_DB_NAME;
 
-        imports.insert("::arangodb_types::types::DBMutex".to_string());
-        imports.insert("::arangodb_types::types::NullableOption".to_string());
         quote! {
-            #[serde(skip_serializing_if = "NullableOption::is_missing")]
+            #[serde(skip_serializing_if = "::arangodb_types::types::NullableOption::is_missing")]
             #[serde(rename = #db_name)]
-            pub #name: NullableOption<DBMutex>,
+            pub #name: ::arangodb_types::types::NullableOption<::arangodb_types::types::DBMutex>,
         }
     } else {
         quote! {}
@@ -122,7 +108,7 @@ fn build_struct(
         let name = field.name();
         let db_name = &field.db_name;
         let field_type = field.build_db_field_type();
-        let deserialize_with = field.build_field_deserialize_with(imports);
+        let deserialize_with = field.build_field_deserialize_with();
 
         quote! {
             #(#attribute_list)*
@@ -147,14 +133,14 @@ fn build_struct(
 
     // Build result.
     Ok(quote! {
-        #[derive(Debug, Clone, Serialize, Deserialize)]
+        #[derive(Debug, Clone, ::serde::Serialize, ::serde::Deserialize)]
         #[serde(rename_all = "camelCase")]
         #default_attribute
         #attributes
         #visibility struct #document_name #generics {
             #[serde(skip_serializing_if = "Option::is_none")]
             #[serde(rename = "_rev")]
-            pub db_rev: Option<ArcStr>,
+            pub db_rev: Option<::arangodb_types::arcstr::ArcStr>,
 
             #lock_field
 
@@ -171,7 +157,6 @@ fn build_impl(
     options: &ModelOptions,
     info: &ModelInfo,
     fields_in_db: &[&FieldInfo],
-    imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
     let generics = info.item.generics();
     let document_name = &info.document_name;
@@ -181,16 +166,12 @@ fn build_impl(
 
     // Evaluate all null method.
     let all_null_method_tokens = if all_fields_are_optional_or_db_properties {
-        imports.insert("::arangodb_types::types::NullableOption".to_string());
-
         let null_field_list = fields_in_db.iter().filter_map(|field| {
             let name = field.name();
 
-            imports.insert("::arangodb_types::types::NullableOption".to_string());
-
             match field.field_type_kind {
                 Some(FieldTypeKind::NullableOption) => Some(quote! {
-                    #name: NullableOption::Null
+                    #name: ::arangodb_types::types::NullableOption::Null
                 }),
                 Some(FieldTypeKind::Option) => Some(quote! {
                     #name: None
@@ -203,7 +184,7 @@ fn build_impl(
         let mutex_field_name = format_ident!("{}", MUTEX_FIELD_NAME);
         let mutex_field = if options.sync_level.is_document_active() {
             quote! {
-                #mutex_field_name: NullableOption::Null,
+                #mutex_field_name: ::arangodb_types::types::NullableOption::Null,
             }
         } else {
             quote! {}
@@ -239,7 +220,6 @@ fn build_db_document_impl(
     options: &ModelOptions,
     info: &ModelInfo,
     fields_in_db: &[&FieldInfo],
-    imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
     let document_name = &info.document_name;
     let collection_name = &info.collection_name;
@@ -265,11 +245,9 @@ fn build_db_document_impl(
             match field.attributes.inner_model {
                 InnerModelKind::Data => match field.field_type_kind {
                     Some(FieldTypeKind::NullableOption) => {
-                        imports.insert("::arangodb_types::types::NullableOption".to_string());
-
                         Some(quote! {
                             if self.#name.is_value() {
-                                self.#name = NullableOption::Null;
+                                self.#name = ::arangodb_types::types::NullableOption::Null;
                             }
                         })
                     }
@@ -304,7 +282,7 @@ fn build_db_document_impl(
                     match field.field_type_kind {
                         Some(FieldTypeKind::NullableOption) => base.map(|base| {
                             quote! {
-                                if let NullableOption::Value(v) = &mut self.#name {
+                                if let ::arangodb_types::types::NullableOption::Value(v) = &mut self.#name {
                                     #base
                                 }
                             }
@@ -457,32 +435,28 @@ fn build_db_document_impl(
     };
 
     // Build result.
-    imports.insert("::arangodb_types::traits::DBDocument".to_string());
-    imports.insert("::arangodb_types::types::DBId".to_string());
-    imports.insert("::async_trait::async_trait".to_string());
-
     let key_field = info.get_key_field().unwrap();
     let key_type = key_field.inner_type.as_ref().unwrap();
     Ok(quote! {
-        #[async_trait]
-        impl DBDocument for #document_name {
+        #[::arangodb_types::async_trait::async_trait]
+        impl ::arangodb_types::traits::DBDocument for #document_name {
             type Key = #key_type;
             type CollectionType = #collection_type_name;
             type Collection = #collection_name;
 
             // GETTERS --------------------------------------------------------
 
-            fn db_id(&self) -> Option<DBId<Self::Key, Self::CollectionType>> {
+            fn db_id(&self) -> Option<::arangodb_types::types::DBId<Self::Key, Self::CollectionType>> {
                 self.db_key
                     .as_ref()
-                    .map(|key| DBId::new(key.clone(), #collection_type_name::#collection_kind))
+                    .map(|key| ::arangodb_types::types::DBId::new(key.clone(), #collection_type_name::#collection_kind))
             }
 
             fn db_key(&self) -> &Option<Self::Key> {
                 &self.db_key
             }
 
-            fn db_rev(&self) -> &Option<ArcStr> {
+            fn db_rev(&self) -> &Option<::arangodb_types::arcstr::ArcStr> {
                 &self.db_rev
             }
 
@@ -511,7 +485,6 @@ pub fn build_db_struct_field_list(
     _options: &ModelOptions,
     info: &ModelInfo,
     fields_in_db: &[&FieldInfo],
-    imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
     let enum_name = &info.field_enum_name;
     let visibility = info.item.visibility();
@@ -598,13 +571,9 @@ pub fn build_db_struct_field_list(
         return Ok(quote! {});
     }
 
-    imports.insert("::std::borrow::Cow".to_string());
-    imports.insert("::serde::Deserialize".to_string());
-    imports.insert("::serde::Serialize".to_string());
-
     // Build result.
     Ok(quote! {
-        #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+        #[derive(Debug, Clone, Eq, PartialEq, Hash, ::serde::Serialize, ::serde::Deserialize)]
         #[serde(rename_all = "camelCase")]
         #[serde(tag = "T", content = "V")]
         #visibility enum #enum_name {
@@ -612,7 +581,7 @@ pub fn build_db_struct_field_list(
         }
 
         impl #enum_name {
-            pub fn path(&self) -> Cow<'static, str> {
+            pub fn path(&self) -> ::std::borrow::Cow<'static, str> {
                 match self {
                     #(#path_fields)*
                 }
@@ -625,11 +594,7 @@ pub fn build_db_struct_field_list(
 // ----------------------------------------------------------------------------
 // ----------------------------------------------------------------------------
 
-fn build_sync_impl(
-    options: &ModelOptions,
-    info: &ModelInfo,
-    imports: &mut HashSet<String>,
-) -> Result<TokenStream, syn::Error> {
+fn build_sync_impl(options: &ModelOptions, info: &ModelInfo) -> Result<TokenStream, syn::Error> {
     let document_name = &info.document_name;
     let collection_name = &info.collection_name;
     let config_collection_key_method =
@@ -651,17 +616,14 @@ fn build_sync_impl(
     };
 
     // Build result.
-    imports.insert("::arangodb_types::traits::DBSynchronizedDocument".to_string());
-    imports.insert("::arangodb_types::types::NullableOption".to_string());
-
     Ok(quote! {
-        impl<'a> DBSynchronizedDocument<'a> for #document_name {
+        impl<'a> ::arangodb_types::traits::DBSynchronizedDocument<'a> for #document_name {
             #[allow(unused_variables)]
             fn collection_key() -> &'a Self::Key {
                 #collection_key_value
             }
 
-            fn set_mutex(&mut self, mutex: NullableOption<DBMutex>) {
+            fn set_mutex(&mut self, mutex: ::arangodb_types::types::NullableOption<::arangodb_types::types::DBMutex>) {
                 self.db_mutex = mutex;
             }
         }
@@ -676,7 +638,6 @@ fn check_and_build_edge_db_impl(
     _options: &ModelOptions,
     info: &ModelInfo,
     fields_in_db: &[&FieldInfo],
-    imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
     let from_field = fields_in_db.iter().find(|field| field.db_name == "_from");
     let to_field = fields_in_db.iter().find(|field| field.db_name == "_to");
@@ -686,15 +647,13 @@ fn check_and_build_edge_db_impl(
         let from_field = from_field.name();
         let to_field = to_field.name();
 
-        imports.insert("::arangodb_types::types::DBId".to_string());
-
         Ok(quote! {
             impl DBEdgeDocument for #document_name {
-                fn db_from(&self) -> &Option<DBId<Self::Key, Self::CollectionType>> {
+                fn db_from(&self) -> &Option<::arangodb_types::types::DBId<Self::Key, Self::CollectionType>> {
                     &self.#from_field
                 }
 
-                fn db_to(&self) -> &Option<DBId<Self::Key, Self::CollectionType>> {
+                fn db_to(&self) -> &Option<::arangodb_types::types::DBId<Self::Key, Self::CollectionType>> {
                     &self.#to_field
                 }
             }
@@ -713,7 +672,6 @@ pub fn build_db_struct_aql_mapping_impl(
     info: &ModelInfo,
     is_sub_model: bool,
     fields_in_db: &[&FieldInfo],
-    imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
     let generics = info.item.generics();
     let document_name = &info.document_name;
@@ -745,7 +703,7 @@ pub fn build_db_struct_aql_mapping_impl(
                         }),
                         Some(FieldTypeKind::NullableOption) => base.map(|base| {
                             quote! {
-                                if let NullableOption::Value(v) = &self.#name {
+                                if let ::arangodb_types::types::NullableOption::Value(v) = &self.#name {
                                     #base
                                 }
                             }
@@ -765,7 +723,7 @@ pub fn build_db_struct_aql_mapping_impl(
                         }
                     }),
                     Some(FieldTypeKind::NullableOption) => Some(quote! {
-                        if let NullableOption::Value(v) = &self.#name {
+                        if let ::arangodb_types::types::NullableOption::Value(v) = &self.#name {
                             v.include_let_steps(aql, path, next_id);
                         }
                     }),
@@ -778,19 +736,15 @@ pub fn build_db_struct_aql_mapping_impl(
         .collect();
 
     let include_let_steps_method = if !include_let_steps_fields.is_empty() {
-        imports.insert("::arangodb_types::aql::AqlBuilder".to_string());
-
         quote! {
             #[allow(unused_variables)]
-            fn include_let_steps(&self, aql: &mut AqlBuilder, path: &str, next_id: &mut usize) {
+            fn include_let_steps(&self, aql: &mut ::arangodb_types::aql::AqlBuilder, path: &str, next_id: &mut usize) {
                 #(#include_let_steps_fields)*
             }
         }
     } else {
         quote! {}
     };
-
-    imports.insert("::arangodb_types::types::NullableOption".to_string());
 
     let map_to_json_fields = fields_in_db.iter().map(|field| {
         let db_name = &field.db_name;
@@ -833,16 +787,16 @@ pub fn build_db_struct_aql_mapping_impl(
                     Some(FieldTypeKind::NullableOption) => {
                         quote! {
                             match &self.#name {
-                                NullableOption::Value(v) => {
+                                ::arangodb_types::types::NullableOption::Value(v) => {
                                     buffer.write_all(#pattern1.as_bytes()).unwrap();
                                     #base
                                 }
-                                NullableOption::Null => {
+                                ::arangodb_types::types::NullableOption::Null => {
                                     buffer.write_all(#pattern1.as_bytes()).unwrap();
                                     buffer.write_all(path.as_bytes()).unwrap();
                                     buffer.write_all(#pattern3.as_bytes()).unwrap();
                                 }
-                                NullableOption::Missing => {}
+                                ::arangodb_types::types::NullableOption::Missing => {}
                             }
                         }
                     }
@@ -876,19 +830,19 @@ pub fn build_db_struct_aql_mapping_impl(
 
                         quote! {
                             match &self.#name {
-                                NullableOption::Value(v) => {
+                                ::arangodb_types::types::NullableOption::Value(v) => {
                                     buffer.write_all(#pattern1.as_bytes()).unwrap();
 
                                     let sub_path = format!(#pattern2, path);
                                     v.map_to_json(buffer, sub_path.as_str(), next_id);
                                     buffer.write_all(b",").unwrap();
                                 }
-                                NullableOption::Null => {
+                                ::arangodb_types::types::NullableOption::Null => {
                                     buffer.write_all(#pattern1.as_bytes()).unwrap();
                                     buffer.write_all(path.as_bytes()).unwrap();
                                     buffer.write_all(#pattern3.as_bytes()).unwrap();
                                 }
-                                NullableOption::Missing => {}
+                                ::arangodb_types::types::NullableOption::Missing => {}
                             }
                         }
                     }
@@ -914,23 +868,21 @@ pub fn build_db_struct_aql_mapping_impl(
         let pattern2 = format!("{{}}.{}", db_name);
         let pattern3 = format!(".{},", db_name);
 
-        imports.insert("::arangodb_types::types::NullableOption".to_string());
-
         quote! {
             match &self.#name {
-                NullableOption::Value(v) => {
+                ::arangodb_types::types::NullableOption::Value(v) => {
                     buffer.write_all(#pattern1.as_bytes()).unwrap();
 
                     let sub_path = format!(#pattern2, path);
                     v.map_to_json(buffer, sub_path.as_str(), next_id);
                     buffer.write_all(b",").unwrap();
                 }
-                NullableOption::Null => {
+                ::arangodb_types::types::NullableOption::Null => {
                     buffer.write_all(#pattern1.as_bytes()).unwrap();
                     buffer.write_all(path.as_bytes()).unwrap();
                     buffer.write_all(#pattern3.as_bytes()).unwrap();
                 }
-                NullableOption::Missing => {}
+                ::arangodb_types::types::NullableOption::Missing => {}
             }
         }
     } else {
@@ -974,10 +926,14 @@ pub fn build_db_struct_aql_mapping_impl(
         quote! {}
     };
 
-    imports.insert("::arangodb_types::traits::AQLMapping".to_string());
+    let impl_name = if options.relative_imports {
+        quote!(AQLMapping)
+    } else {
+        quote!(::arangodb_types::traits::AQLMapping)
+    };
 
     Ok(quote! {
-        impl #generics AQLMapping for #document_name #generics {
+        impl #generics #impl_name for #document_name #generics {
             #include_let_steps_method
 
             #[allow(unused_variables)]

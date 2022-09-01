@@ -1,6 +1,5 @@
 use proc_macro2::{Ident, TokenStream};
 use quote::{quote, ToTokens, TokenStreamExt};
-use std::collections::HashSet;
 use syn::{Field, Fields, Path, Type, Variant};
 
 use crate::data::{FieldAttributes, InnerModelKind};
@@ -48,17 +47,17 @@ impl<'a> FieldInfo<'a> {
         if let Type::Path(type_path) = &field.ty {
             result.read_field_type(&field.ident.as_ref().unwrap().to_string(), &type_path.path)?;
         } else {
-            return Err(crate::errors::Error::Message(
-                "The type of the field must be a path".to_string(),
-            )
-            .with_tokens(field));
+            return Err(
+                Error::Message("The type of the field must be a path".to_string())
+                    .with_tokens(field),
+            );
         }
 
         let attributes = &mut result.attributes;
         match result.field_type_kind {
             Some(FieldTypeKind::NullableOption) => {
                 attributes.attributes.push(quote! {
-                    #[serde(skip_serializing_if = "NullableOption::is_missing")]
+                    #[serde(skip_serializing_if = "::arangodb_types::types::NullableOption::is_missing")]
                 });
             }
             Some(FieldTypeKind::Option) => {
@@ -156,7 +155,7 @@ impl<'a> FieldInfo<'a> {
                             return Ok(());
                         }
                         _ => {
-                            return Err(crate::errors::Error::Message(format!(
+                            return Err(Error::Message(format!(
                                 "Incorrect type for Vec<T> in field '{}'",
                                 field_name
                             ))
@@ -164,7 +163,7 @@ impl<'a> FieldInfo<'a> {
                         }
                     },
                     None => {
-                        return Err(crate::errors::Error::Message(format!(
+                        return Err(Error::Message(format!(
                             "Incorrect type for Vec<T> in field '{}'",
                             field_name
                         ))
@@ -177,7 +176,7 @@ impl<'a> FieldInfo<'a> {
                     self.inner_type = match get_inner_type_from_path(&type_path.path) {
                         Some(v) => Some(v.to_token_stream()),
                         None => {
-                            return Err(crate::errors::Error::Message(format!(
+                            return Err(Error::Message(format!(
                                 "Missing T in Vec<DBReference<T>> in field '{}'",
                                 field_name
                             ))
@@ -193,7 +192,7 @@ impl<'a> FieldInfo<'a> {
                 self.inner_type = match get_inner_type_from_path(path) {
                     Some(v) => Some(v.to_token_stream()),
                     None => {
-                        return Err(crate::errors::Error::Message(format!(
+                        return Err(Error::Message(format!(
                             "Missing T in Box<T> in field '{}'",
                             field_name
                         ))
@@ -205,7 +204,7 @@ impl<'a> FieldInfo<'a> {
                 self.inner_type = match get_inner_type_from_path(path) {
                     Some(v) => Some(v.to_token_stream()),
                     None => {
-                        return Err(crate::errors::Error::Message(format!(
+                        return Err(Error::Message(format!(
                             "Missing T in DBReference<T> in field '{}'",
                             field_name
                         ))
@@ -217,7 +216,7 @@ impl<'a> FieldInfo<'a> {
                 let (key_type, value_type) = match get_inner_map_types_from_path(path) {
                     Some(v) => v,
                     None => {
-                        return Err(crate::errors::Error::Message(format!(
+                        return Err(Error::Message(format!(
                             "Incorrect type for map in field '{}'",
                             field_name
                         ))
@@ -233,7 +232,7 @@ impl<'a> FieldInfo<'a> {
                 self.base_type_kind = BaseTypeKind::Other;
             }
         } else {
-            return Err(crate::errors::Error::Message(
+            return Err(Error::Message(
                 format!("Cannot get a base type from the tokens. They must be a simple type (T), a Vec<T> or a HashMap<K, T> in field '{}'", field_name),
             )
                 .with_tokens(path));
@@ -255,7 +254,7 @@ impl<'a> FieldInfo<'a> {
                             return Ok(());
                         }
                         _ => {
-                            return Err(crate::errors::Error::Message(format!(
+                            return Err(Error::Message(format!(
                                 "Incorrect type for NullableOption<T> in field '{}'",
                                 field_name
                             ))
@@ -263,7 +262,7 @@ impl<'a> FieldInfo<'a> {
                         }
                     },
                     None => {
-                        return Err(crate::errors::Error::Message(format!(
+                        return Err(Error::Message(format!(
                             "Incorrect type for NullableOption<T> in field '{}'",
                             field_name
                         ))
@@ -284,7 +283,7 @@ impl<'a> FieldInfo<'a> {
                             return Ok(());
                         }
                         _ => {
-                            return Err(crate::errors::Error::Message(format!(
+                            return Err(Error::Message(format!(
                                 "Incorrect type for Option<T> in field '{}'",
                                 field_name
                             ))
@@ -292,7 +291,7 @@ impl<'a> FieldInfo<'a> {
                         }
                     },
                     None => {
-                        return Err(crate::errors::Error::Message(format!(
+                        return Err(Error::Message(format!(
                             "Incorrect type for Option<T> in field '{}'",
                             field_name
                         ))
@@ -307,7 +306,7 @@ impl<'a> FieldInfo<'a> {
                 self.read_base_type(field_name, path)?;
             }
         } else {
-            return Err(crate::errors::Error::Message(
+            return Err(Error::Message(
                 format!("Cannot get a field type from the tokens. They must be an upper type (a) or NullableOption<a> in field '{}'", field_name),
             )
                 .with_tokens(path));
@@ -339,7 +338,9 @@ impl<'a> FieldInfo<'a> {
         };
 
         match self.field_type_kind {
-            Some(FieldTypeKind::NullableOption) => quote! { NullableOption<#base> },
+            Some(FieldTypeKind::NullableOption) => {
+                quote! { ::arangodb_types::types::NullableOption<#base> }
+            }
             Some(FieldTypeKind::Option) => quote! { Option<#base> },
             None => base,
         }
@@ -371,13 +372,15 @@ impl<'a> FieldInfo<'a> {
         };
 
         match self.field_type_kind {
-            Some(FieldTypeKind::NullableOption) => quote! { NullableOption<#base> },
+            Some(FieldTypeKind::NullableOption) => {
+                quote! { ::arangodb_types::types::NullableOption<#base> }
+            }
             Some(FieldTypeKind::Option) => quote! { Option<#base> },
             None => base,
         }
     }
 
-    pub fn build_field_deserialize_with(&self, imports: &mut HashSet<String>) -> TokenStream {
+    pub fn build_field_deserialize_with(&self) -> TokenStream {
         if self.base_type_kind != BaseTypeKind::Other {
             return quote! {};
         }
@@ -396,10 +399,10 @@ impl<'a> FieldInfo<'a> {
             "u8" | "u16" | "u32" | "u64" | "i8" | "i16" | "i32" | "i64" => {
                 match self.field_type_kind {
                     Some(FieldTypeKind::NullableOption) => {
-                        let method = format!("deserialize_nullable_{}", inner_type_str);
-
-                        imports.insert(format!("::arangodb_types::types::{}", method));
-                        imports.insert("::arangodb_types::types::NullableOption".to_string());
+                        let method = format!(
+                            "::arangodb_types::types::deserialize_nullable_{}",
+                            inner_type_str
+                        );
 
                         quote! {
                             #[serde(default)]
@@ -408,9 +411,8 @@ impl<'a> FieldInfo<'a> {
                     }
                     Some(FieldTypeKind::Option) => quote! {},
                     None => {
-                        let method = format!("deserialize_{}", inner_type_str);
-
-                        imports.insert(format!("::arangodb_types::types::{}", method));
+                        let method =
+                            format!("::arangodb_types::types::deserialize_{}", inner_type_str);
 
                         quote! {
                             #[serde(default)]

@@ -8,7 +8,7 @@ The macro options are introduced at the beginning using the pattern:
 
 ## Options
 
-- `#![no_imports]`: prevents from adding imports of the types used in the models.
+- `#![relative_imports]`: makes the imports be relative instead of absolute in the models.
 - `#![build_<model>]`: generates a new model named `model` that basically removes the serde renames.
 - `#![skip_impl]`: disables the generation of the database impls.
 - `#![skip_fields]`: disables the generation of the database field enum for the model.

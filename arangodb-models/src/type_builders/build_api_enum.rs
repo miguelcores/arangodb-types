@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use proc_macro2::TokenStream;
 use quote::quote;
 use quote::{format_ident, ToTokens};
@@ -11,19 +9,18 @@ pub fn build_api_enum_type(
     model: &str,
     options: &ModelOptions,
     info: &ModelInfo,
-    imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
     let fields_in_model = info.fields_in_model(model);
-    let enum_tokens = build_enum(model, options, info, &fields_in_model, imports)?;
+    let enum_tokens = build_enum(model, options, info, &fields_in_model)?;
     let impl_tokens = if !options.skip_impl {
-        build_impl(model, options, info, &fields_in_model, imports)?
+        build_impl(model, options, info, &fields_in_model)?
     } else {
         quote! {}
     };
-    let from_to_tokens = build_from_to(model, options, info, &fields_in_model, imports)?;
+    let from_to_tokens = build_from_to(model, options, info, &fields_in_model)?;
 
     let field_list_tokens = if !options.skip_fields {
-        build_field_list(model, options, info, &fields_in_model, imports)?
+        build_field_list(model, options, info, &fields_in_model)?
     } else {
         quote! {}
     };
@@ -46,7 +43,6 @@ fn build_enum(
     _options: &ModelOptions,
     info: &ModelInfo,
     fields_in_model: &[&FieldInfo],
-    imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
     let visibility = info.item.visibility();
     let generics = info.item.generics();
@@ -120,12 +116,9 @@ fn build_enum(
         }
     };
 
-    imports.insert("::serde::Deserialize".to_string());
-    imports.insert("::serde::Serialize".to_string());
-
     // Build result.
     Ok(quote! {
-        #[derive(Debug, Clone, Serialize, Deserialize)]
+        #[derive(Debug, Clone, ::serde::Serialize, ::serde::Deserialize)]
         #simple_attributes
         #[serde(rename_all = "camelCase")]
         #serde_tag_attribute
@@ -145,7 +138,6 @@ fn build_impl(
     _options: &ModelOptions,
     info: &ModelInfo,
     fields_in_model: &[&FieldInfo],
-    _imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
     let generics = info.item.generics();
     let document_name = &info.api_document_names.get(model).unwrap();
@@ -233,7 +225,6 @@ fn build_from_to(
     _options: &ModelOptions,
     info: &ModelInfo,
     fields_in_model: &[&FieldInfo],
-    _imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
     let generics = info.item.generics();
     let document_name = &info.document_name;
@@ -307,7 +298,6 @@ fn build_field_list(
     _options: &ModelOptions,
     info: &ModelInfo,
     fields_in_model: &[&FieldInfo],
-    imports: &mut HashSet<String>,
 ) -> Result<TokenStream, syn::Error> {
     let generics = info.item.generics();
     let api_document_name = &info.api_document_names.get(model).unwrap();
@@ -329,7 +319,7 @@ fn build_field_list(
                     #name(Option<()>),
                 });
                 field_paths.push(quote! {
-                    #api_field_enum_name::#name(_) => Cow::Borrowed(#db_name),
+                    #api_field_enum_name::#name(_) => ::std::borrow::Cow::Borrowed(#db_name),
                 });
 
                 if field.inner_type.is_some() {
@@ -354,9 +344,9 @@ fn build_field_list(
                 });
                 field_paths.push(quote! {
                     #api_field_enum_name::#name(v) => if let Some(v) = v {
-                        Cow::Owned(format!("V.{}", v.path()))
+                        ::std::borrow::Cow::Owned(format!("V.{}", v.path()))
                     } else {
-                        Cow::Borrowed(#db_name)
+                        ::std::borrow::Cow::Borrowed(#db_name)
                     }
                 });
                 get_variant_list.push(quote! {
@@ -375,9 +365,9 @@ fn build_field_list(
                 });
                 field_paths.push(quote! {
                     #api_field_enum_name::#name(v) => if let Some(v) = v {
-                        Cow::Owned(format!("V.{}", v.path()))
+                        ::std::borrow::Cow::Owned(format!("V.{}", v.path()))
                     } else {
-                        Cow::Borrowed(#db_name)
+                        ::std::borrow::Cow::Borrowed(#db_name)
                     }
                 });
                 get_variant_list.push(quote! {
@@ -386,9 +376,6 @@ fn build_field_list(
             }
         }
     });
-
-    imports.insert("::serde::Deserialize".to_string());
-    imports.insert("::serde::Serialize".to_string());
 
     // Build result.
     Ok(quote! {
@@ -400,7 +387,7 @@ fn build_field_list(
             }
         }
 
-        #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+        #[derive(Debug, Clone, Eq, PartialEq, Hash, ::serde::Serialize, ::serde::Deserialize)]
         #[serde(rename_all = "camelCase")]
         #[serde(tag = "T", content = "V")]
         #visibility enum #api_field_enum_name {
@@ -414,10 +401,10 @@ fn build_field_list(
         }
 
         impl #api_field_enum_name {
-            pub fn path(&self) -> Cow<'static, str> {
+            pub fn path(&self) -> ::std::borrow::Cow<'static, str> {
                 match self {
-                    #api_field_enum_name::TypeField(_) => Cow::Borrowed("T"),
-                    #api_field_enum_name::ValueField(_) => Cow::Borrowed("V"),
+                    #api_field_enum_name::TypeField(_) => ::std::borrow::Cow::Borrowed("T"),
+                    #api_field_enum_name::ValueField(_) => ::std::borrow::Cow::Borrowed("V"),
                     #(#field_paths)*
                 }
             }

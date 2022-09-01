@@ -1,7 +1,6 @@
 use arangodb_types::traits::DBCollection;
 use arangodb_types::traits::DBDocument;
-use arangodb_types::types::dates::DBDateTime;
-use arangodb_types::types::DBMutex;
+use arangodb_types::types::{DBDateTime, DBMutex};
 use arangodb_types::types::{DBUuid, NullableOption};
 use arangodb_types::utilities::{DBMutexError, DBMutexGuard};
 
