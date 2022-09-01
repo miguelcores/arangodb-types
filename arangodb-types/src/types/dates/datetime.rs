@@ -1,7 +1,7 @@
 use std::fmt;
 use std::ops::Deref;
 
-use chrono::{Datelike, LocalResult, TimeZone, Timelike, Utc};
+use chrono::{DateTime, Datelike, LocalResult, TimeZone, Timelike, Utc};
 use serde::de::Visitor;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
@@ -36,7 +36,7 @@ impl DBDateTime {
     }
 
     pub fn max_datetime() -> Self {
-        Self::new(chrono::MAX_DATETIME)
+        Self::new(DateTime::<Utc>::MAX_UTC)
     }
 
     // GETTERS ----------------------------------------------------------------

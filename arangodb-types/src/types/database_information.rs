@@ -1,10 +1,10 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 
+use arangors::uclient::reqwest::ReqwestClient;
 use arangors::{ClientError, Connection, GenericConnection};
 use serde::Deserialize;
 use serde::Serialize;
-use uclient::reqwest::ReqwestClient;
 
 use crate::traits::utils::check_client_is_write_conflict;
 
