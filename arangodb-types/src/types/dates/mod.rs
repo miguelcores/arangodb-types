@@ -8,4 +8,4 @@ mod date;
 mod datetime;
 mod daytime;
 mod duration;
-mod expiration;
+pub mod expiration;

@@ -9,7 +9,7 @@ pub use reference_api::*;
 pub use uuid::*;
 
 mod database_information;
-mod dates;
+pub mod dates;
 mod id;
 mod mutex;
 mod nullable_option;
